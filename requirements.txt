@@ -1,0 +1,21 @@
+# Core dependencies
+torch>=1.13.0
+transformers>=4.25.1
+numpy>=1.22.4
+tqdm>=4.64.1
+
+# Pre-built tokenizers or fallback
+--find-links https://download.pytorch.org/whl/torch_stable.html
+--find-links https://download.pytorch.org/whl/cu118
+tokenizers==0.13.3
+
+tensorflow==2.13.0
+torchvision==0.15.1+cu118
+torchaudio==2.0.1
+pytest==6.2.5
+filelock
+huggingface-hub<1.0,>=0.14.1
+packaging>=20.0
+pyyaml>=5.1
+regex!=2019.12.17
+requests
