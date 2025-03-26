@@ -1,8 +1,9 @@
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
-from ai_interface import AIPredictorInterface
+from typing import Union, List
+from .ai_interface import AI
 
-class GPT2NextWordPredictor(AIPredictorInterface):
+class GPT2(AI):
     def __init__(self, model_name="gpt2"):
         """
         Initialize the GPT-2 model and tokenizer.
@@ -18,19 +19,19 @@ class GPT2NextWordPredictor(AIPredictorInterface):
         self.model.eval()  # Set model to evaluation mode
         print("Model loaded successfully!")
         
-    def predict_next_words(self, text: str, k: int) -> list:
+    def list_rank_tokens(self, tokens: list, k: int) -> list:
         """
-        Predict the top K most likely next words given the input text.
+        Predict the top K most likely next tokens given the input token sequence.
         
         Args:
-            text (str): The input text prompt
+            tokens (list): The input token sequence
             k (int): Number of top predictions to return
             
         Returns:
-            list: Top K predictions with their ranks
+            list: Top K token IDs sorted by probability
         """
-        # Encode the text
-        inputs = self.tokenizer.encode(text, return_tensors="pt")
+        # Convert the token list to a tensor
+        inputs = torch.tensor([tokens], dtype=torch.long)
         
         # Get model predictions
         with torch.no_grad():
@@ -43,10 +44,8 @@ class GPT2NextWordPredictor(AIPredictorInterface):
         # Get the top k tokens
         top_k_values, top_k_indices = torch.topk(next_token_logits, k)
         
-        # Get token strings
-        top_k_tokens = [self.tokenizer.decode([idx]) for idx in top_k_indices]
-            
-        return top_k_tokens
+        # Return the token indices
+        return top_k_indices.tolist()
 
     def get_tokens_for_word(self, word: str) -> list:
         """
@@ -60,9 +59,10 @@ class GPT2NextWordPredictor(AIPredictorInterface):
         """
         # Tokenize the word
         tokens = self.tokenizer.encode(word, add_special_tokens=True)
+        tokens = [int(token) for token in tokens]
         return tokens
-
-    def get_word_from_tokens(self, token: int or list) -> str:
+        
+    def get_word_from_tokens(self, token: Union[int, List[int]]) -> str:
         """
         Get the word(s) corresponding to a given token or list of tokens.
 
@@ -79,10 +79,25 @@ class GPT2NextWordPredictor(AIPredictorInterface):
             word = self.tokenizer.decode([token], clean_up_tokenization_spaces=False)
         return word
 
+    def tokenize(self, text: str) -> list:
+        """
+        Convert a text string into a list of token IDs.
+
+        Args:
+            text (str): The input text to tokenize.
+
+        Returns:
+            list: A list of token IDs corresponding to the text.
+        """
+        # Tokenize the text
+        tokens = self.tokenizer.encode(text, add_special_tokens=True)
+        tokens = [int(token) for token in tokens]
+        return tokens
+
 # Example usage
 if __name__ == "__main__":
     # Initialize the predictor
-    predictor = GPT2NextWordPredictor("gpt2")  # You can change to larger models if needed
+    predictor = GPT2("gpt2")  # You can change to larger models if needed
     
     # Example text
     example_text = "The quick brown fox jumps over the lazy"
@@ -102,5 +117,5 @@ if __name__ == "__main__":
     print(f"\nWord: '{word}'")
     print(f"Tokens: {tokens}")
 
-    word = predictor.get_word_from_token(tokens)
+    word = predictor.get_word_from_tokens(tokens)
     print(f"Word: '{word}'")

@@ -1,17 +1,18 @@
 from abc import ABC, abstractmethod
+from typing import Union, List
 
-class AIPredictorInterface(ABC):
+class AI(ABC):
     @abstractmethod
-    def predict_next_words(self, text: str, k: int) -> list:
+    def list_rank_tokens(self, tokens: list, k: int) -> list:
         """
-        Predict the top K most likely next words given the input text.
-
+        Predict the top K most likely next tokens given the input token sequence.
+        
         Args:
-            text (str): The input text prompt.
-            k (int): Number of top predictions to return.
-
+            tokens (list): The input token sequence
+            k (int): Number of top predictions to return
+            
         Returns:
-            list: A list of the top K predicted next words.
+            list: Top K token IDs sorted by probability
         """
         pass
 
@@ -29,7 +30,7 @@ class AIPredictorInterface(ABC):
         pass
 
     @abstractmethod
-    def get_word_from_tokens(self, token: int or list) -> str:
+    def get_word_from_tokens(self, token: Union[int, List[int]]) -> str:
         """
         Get the word(s) corresponding to a given token or list of tokens.
 
@@ -38,5 +39,18 @@ class AIPredictorInterface(ABC):
 
         Returns:
             str: The decoded word(s) corresponding to the token(s).
+        """
+        pass
+        
+    @abstractmethod
+    def tokenize(self, text: str) -> list:
+        """
+        Convert a text string into a list of token IDs.
+
+        Args:
+            text (str): The input text to tokenize.
+
+        Returns:
+            list: A list of token IDs corresponding to the text.
         """
         pass
