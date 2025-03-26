@@ -90,9 +90,19 @@ class GPT2(AI):
             list: A list of token IDs corresponding to the text.
         """
         # Tokenize the text
-        tokens = self.tokenizer.encode(text, add_special_tokens=True)
-        tokens = [int(token) for token in tokens]
-        return tokens
+        return self.tokenizer.encode(text, add_special_tokens=True)
+    
+    def detokenize(self, tokens):
+        """
+        Convert a list of token IDs into a text string
+
+        Args:
+            tokens (list[int]): The input list of token IDs.
+
+        Returns:
+            str: The decoded text string corresponding to the token IDs.
+        """
+        return self.tokenizer.decode(tokens, skip_special_tokens=True)
 
 # Example usage
 if __name__ == "__main__":

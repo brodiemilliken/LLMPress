@@ -54,3 +54,16 @@ class AI(ABC):
             list: A list of token IDs corresponding to the text.
         """
         pass
+
+    @abstractmethod
+    def detokenize(self, tokens: list[int]) -> str:
+        """
+        Convert a list of token IDs into a text string
+
+        Args:
+            tokens (list[int]): The input list of token IDs.
+
+        Returns:
+            str: The decoded text string corresponding to the token IDs.
+        """
+        pass
