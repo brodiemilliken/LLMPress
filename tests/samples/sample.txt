@@ -1,6 +1,0 @@
-This file is a sample text file used for testing the compression and decompression processes. Here is the content for /LLMPress/tests/samples/sample.txt:
-
-This is a sample text file used for testing purposes.
-It contains multiple lines of text to simulate a real-world scenario.
-The content here is arbitrary and serves to demonstrate the functionality of the compression and decompression algorithms.
-Feel free to modify this text as needed for your testing requirements.
