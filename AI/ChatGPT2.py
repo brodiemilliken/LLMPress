@@ -1,7 +1,8 @@
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from ai_interface import AIPredictorInterface
 
-class GPT2NextWordPredictor:
+class GPT2NextWordPredictor(AIPredictorInterface):
     def __init__(self, model_name="gpt2"):
         """
         Initialize the GPT-2 model and tokenizer.
@@ -17,7 +18,7 @@ class GPT2NextWordPredictor:
         self.model.eval()  # Set model to evaluation mode
         print("Model loaded successfully!")
         
-    def predict_next_words(self, text, k=8):
+    def predict_next_words(self, text: str, k: int) -> list:
         """
         Predict the top K most likely next words given the input text.
         
@@ -47,7 +48,7 @@ class GPT2NextWordPredictor:
             
         return top_k_tokens
 
-    def get_tokens_for_word(self, word):
+    def get_tokens_for_word(self, word: str) -> list:
         """
         Get the token(s) corresponding to a given word.
 
@@ -61,7 +62,7 @@ class GPT2NextWordPredictor:
         tokens = self.tokenizer.encode(word, add_special_tokens=True)
         return tokens
 
-    def get_word_from_token(self, token):
+    def get_word_from_tokens(self, token: int or list) -> str:
         """
         Get the word(s) corresponding to a given token or list of tokens.
 
