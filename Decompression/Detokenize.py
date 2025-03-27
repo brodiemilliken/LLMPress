@@ -1,5 +1,6 @@
 from AI.ai_interface import AI
 from typing import Tuple, List
+from tqdm import tqdm
 
 def detokenize(tokens: List[int], model: AI) -> str:
     """
@@ -63,10 +64,15 @@ def decode_tokens(tokens: list, model: AI, k: int) -> str:
     Returns:
         str: The decoded text string.
     """
+    print(f"Decoding {len(tokens)} tokens...")
     decoded_tokens = []
-    for token in tokens:
+    
+    # Using tqdm for progress bar
+    for token in tqdm(tokens, desc="Decoding", unit="tokens", ncols=80,
+                     bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
         next_token = handle_next_token(token, decoded_tokens, model, k)
         decoded_tokens.append(next_token)
+    
     return model.detokenize(decoded_tokens)
 
 

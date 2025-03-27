@@ -1,5 +1,6 @@
 from AI.ai_interface import AI
 from typing import Tuple, List
+from tqdm import tqdm
 
 def tokenize(text: str, model: AI) -> list:
     """
@@ -80,10 +81,17 @@ def encode_text(text: str, model: AI, k: int) -> List[Tuple[str, int]]:
     Returns:
         List[Tuple[str, int]]: A list of encoded tokens.
     """
+    print("Tokenizing text...")
     tokens = tokenize(text, model)
+    total_tokens = len(tokens)
+    
+    print(f"Encoding {total_tokens} tokens...")
     encoded_tokens = []
-    encoded_tokens.append(handle_explicit_token(tokens[0])) 
-    for i in range(1, len(tokens)):
+    encoded_tokens.append(handle_explicit_token(tokens[0]))
+    
+    # Using tqdm for progress bar
+    for i in tqdm(range(1, total_tokens), desc="Encoding", unit="tokens", ncols=80, 
+                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]'):
         encoded_tokens.append(handle_next_token(i, tokens, model, k))
         
     return encoded_tokens
