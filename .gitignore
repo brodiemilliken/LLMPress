@@ -1,94 +1,66 @@
-# Python bytecode and cache
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # Virtual environments
 venv/
 env/
 ENV/
-llmcompress/
-llmpress_env/
+.venv/
+.Python
+
+# Environment variables
 .env
-.venv
+.env.*
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Pytest cache
+.pytest_cache/
+.cache
+
+# Coverage reports
+.coverage
+*.cover
+coverage.xml
+htmlcov/
+
+# Logs and debug files
+*.log
+logs/
+debug.log
 
 # IDE and editor files
 .idea/
 .vscode/
 *.swp
 *.swo
-.project
-.pydevproject
-.settings/
+*~
+
+# OS generated files
 .DS_Store
-
-# Logs and databases
-*.log
-*.sqlite
-*.db
-
-# Output files
-compressed.bin
-decompressed.txt
-*.bin
-output/
-
-# Model files and caches
-models/*
-!models/README.md
-.cache/
-.huggingface/
-.transformers_cache/
-
-# Test coverage
-.coverage
-htmlcov/
-.pytest_cache/
-
-# Jupyter Notebooks
-.ipynb_checkpoints
-*.ipynb
-
-# Packaging
-.Python
-env/
-build/
-develop-eggs/
-dist/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# OS specific files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
+
+# Build and distribution directories
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Machine learning artifacts
+*.h5
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.joblib
+*.pkl
+
+# Transformers cache
+.cache/
+transformers_cache/
