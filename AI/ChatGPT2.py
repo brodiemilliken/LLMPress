@@ -16,8 +16,23 @@ class GPT2(AI):
         print(f"Loading {model_name} model and tokenizer...")
         self.tokenizer = GPT2Tokenizer.from_pretrained(model_name)
         self.model = GPT2LMHeadModel.from_pretrained(model_name)
+        
+        # Check if CUDA is available and move model to GPU if possible
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        
+        # Print CUDA information for debugging
+        if torch.cuda.is_available():
+            print(f"CUDA available: {torch.cuda.is_available()}")
+            print(f"CUDA version: {torch.version.cuda}")
+            print(f"GPU device: {torch.cuda.get_device_name(0)}")
+            print(f"GPU memory allocated: {torch.cuda.memory_allocated(0) / 1024**2:.2f} MB")
+        else:
+            print("CUDA is not available. Check your PyTorch installation.")
+            
+        print(f"Using device: {self.device}")
         self.model.eval()  # Set model to evaluation mode
-        print("Model loaded successfully!")
+        print(f"Model loaded successfully on {self.device}!")
         
     def list_rank_tokens(self, tokens: list, k: int) -> list:
         """
@@ -30,8 +45,8 @@ class GPT2(AI):
         Returns:
             list: Top K token IDs sorted by probability
         """
-        # Convert the token list to a tensor
-        inputs = torch.tensor([tokens], dtype=torch.long)
+        # Convert the token list to a tensor and move to the correct device
+        inputs = torch.tensor([tokens], dtype=torch.long).to(self.device)
         
         # Get model predictions
         with torch.no_grad():
@@ -57,8 +72,8 @@ class GPT2(AI):
         Returns:
             list: A list of token IDs corresponding to the word.
         """
-        # Tokenize the word
-        tokens = self.tokenizer.encode(word, add_special_tokens=True)
+        # Tokenize the word with all special tokens and without cleaning spaces
+        tokens = self.tokenizer.encode(word, add_special_tokens=True, clean_up_tokenization_spaces=False)
         tokens = [int(token) for token in tokens]
         return tokens
         
@@ -74,9 +89,9 @@ class GPT2(AI):
         """
         # Decode the token(s) into a word or phrase
         if isinstance(token, list):
-            word = self.tokenizer.decode(token, clean_up_tokenization_spaces=False)
+            word = self.tokenizer.decode(token, skip_special_tokens=False, clean_up_tokenization_spaces=False)
         else:
-            word = self.tokenizer.decode([token], clean_up_tokenization_spaces=False)
+            word = self.tokenizer.decode([token], skip_special_tokens=False, clean_up_tokenization_spaces=False)
         return word
 
     def tokenize(self, text: str) -> list:
@@ -89,7 +104,7 @@ class GPT2(AI):
         Returns:
             list: A list of token IDs corresponding to the text.
         """
-        # Tokenize the text
+        # Tokenize the text with all special tokens and without cleaning spaces
         return self.tokenizer.encode(text, add_special_tokens=True)
     
     def detokenize(self, tokens):
@@ -102,7 +117,29 @@ class GPT2(AI):
         Returns:
             str: The decoded text string corresponding to the token IDs.
         """
-        return self.tokenizer.decode(tokens, skip_special_tokens=True)
+        return self.tokenizer.decode(tokens, skip_special_tokens=False, clean_up_tokenization_spaces=False)
+
+    def predict_next_words(self, text: str, k: int = 5) -> list:
+        """
+        Predict the top K most likely next words given an input text.
+        
+        Args:
+            text (str): The input text
+            k (int): Number of top predictions to return
+            
+        Returns:
+            list: Top K predicted words sorted by probability
+        """
+        # Tokenize the input text
+        tokens = self.tokenize(text)
+        
+        # Get the top k token predictions
+        top_tokens = self.list_rank_tokens(tokens, k)
+        
+        # Convert tokens to words
+        words = [self.get_word_from_tokens([token]) for token in top_tokens]
+        
+        return words
 
 # Example usage
 if __name__ == "__main__":
