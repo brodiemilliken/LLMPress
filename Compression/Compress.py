@@ -17,7 +17,7 @@ def compress(input_data, model, k=64, output_path=None):
         output_path (str, optional): Path to save binary output
         
     Returns:
-        tuple: (binary_data, original_size, compressed_size)
+        tuple: (binary_data, original_size, compressed_size, encoded_tokens)
     """
     # Determine if input_data is a file path or a string
     if isinstance(input_data, str) and os.path.exists(input_data) and os.path.isfile(input_data):
@@ -32,7 +32,7 @@ def compress(input_data, model, k=64, output_path=None):
     
     # Compression
     tokens = Tokenize.encode_text(text, model, k)
-    bin_data = Encoder.encode_tokens(tokens)
+    bin_data = Encoder.encode_tokens(tokens.copy())
     compressed_size = len(bin_data)
     
     # Save binary if path provided
@@ -40,4 +40,4 @@ def compress(input_data, model, k=64, output_path=None):
         with open(output_path, "wb") as file:
             file.write(bin_data)
     
-    return bin_data, original_size, compressed_size
+    return bin_data, original_size, compressed_size, tokens

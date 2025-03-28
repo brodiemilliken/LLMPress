@@ -17,7 +17,7 @@ def decompress(input_data, model, k=64, output_path=None):
         output_path (str, optional): Path to save decoded text
         
     Returns:
-        str: Decompressed text
+        tuple: (decoded_text, decoded_tokens)
     """
     # Determine if input_data is a file path or binary data
     if isinstance(input_data, str) and os.path.exists(input_data) and os.path.isfile(input_data):
@@ -30,11 +30,11 @@ def decompress(input_data, model, k=64, output_path=None):
     
     # Decompression
     tokens = Decoder.decode_bytes(bin_data)
-    text = Detokenize.decode_tokens(tokens, model, k)
+    text = Detokenize.decode_tokens(tokens.copy(), model, k)
     
     # Save text if path provided
     if output_path:
         with open(output_path, "w", encoding="utf-8") as file:
             file.write(text)
     
-    return text
+    return text, tokens
