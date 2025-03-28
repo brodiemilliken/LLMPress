@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Environment
+venv/
+env/
+ENV/
+.venv/
+.Python
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.cache/
+.pytest_cache/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test files and output
+Output/
+Compressed/
+Results/
+Debug/
+Test/Medium_Files/
+Test/Small_Files/
+
+# Documentation
+*.md
+!README
