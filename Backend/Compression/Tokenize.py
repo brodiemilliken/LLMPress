@@ -1,14 +1,13 @@
-from AI.ai_interface import AI
 from typing import Tuple, List
 from tqdm import tqdm
 
-def tokenize(text: str, model: AI) -> list:
+def tokenize(text: str, model) -> list:
     """
-    Tokenizes the input text using the provided AI model.
+    Tokenizes the input text using the provided model or API client.
 
     Args:
         text (str): The input text to tokenize.
-        model (AI): The AI model to use for tokenization.
+        model: The model or API client to use for tokenization.
 
     Returns:
         list: A list of tokens.
@@ -27,14 +26,14 @@ def handle_explicit_token(token: str) -> Tuple[str, int]:
     """
     return ("e", int(token))
 
-def handle_rank_token(current_index: int, tokens: List[str], model: AI, k: int) -> int:
+def handle_rank_token(current_index: int, tokens: List[str], model, k: int) -> int:
     """
-    Runs AI model to see if next token lands in the top K tokens.
+    Runs model to see if next token lands in the top K tokens.
     
     Args:
         current_index (int): The current token index.
         tokens (List[str]): The list of tokens.
-        model (AI): The AI model to use.
+        model: The model or API client to use.
         k (int): The number of top predictions to consider.
 
     Returns:
@@ -45,14 +44,14 @@ def handle_rank_token(current_index: int, tokens: List[str], model: AI, k: int) 
     ranks = model.list_rank_tokens(context_tensor, k)
     return ranks.index(next_token) if next_token in ranks else -1
 
-def handle_next_token(current_index: int, tokens: List[str], model: AI, k: int) -> Tuple[str, int]:
+def handle_next_token(current_index: int, tokens: List[str], model, k: int) -> Tuple[str, int]:
     """
     Determines how to encode the next token based on rank prediction.
     
     Args:
         current_index (int): The current token index.
         tokens (List[str]): The list of tokens.
-        model (AI): The AI model to use.
+        model: The model or API client to use.
         k (int): The number of top predictions to consider.
     Returns:
         Tuple[str, int]:   
@@ -69,13 +68,13 @@ def handle_next_token(current_index: int, tokens: List[str], model: AI, k: int) 
     else:
         return handle_explicit_token(tokens[current_index])
     
-def encode_text(text: str, model: AI, k: int) -> List[Tuple[str, int]]:
+def encode_text(text: str, model, k: int) -> List[Tuple[str, int]]:
     """
-    Encodes a text string using the AI model.
+    Encodes a text string using the model or API client.
     
     Args:
         text (str): The text to encode.
-        model (AI): The AI model to use.
+        model: The model or API client to use.
         k (int): The number of top predictions to consider.
         
     Returns:
