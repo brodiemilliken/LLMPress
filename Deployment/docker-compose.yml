@@ -1,26 +1,61 @@
 version: '3.8'
 
 services:
-  llmpress-ai:
-    build:
-      context: ../AI
-      dockerfile: Dockerfile
-    image: llmpress-ai:latest
-    container_name: llmpress-ai
+  redis:
+    image: redis:latest
+    container_name: llmpress-redis
     ports:
-      - "8000:8000"
+      - "6379:6379"
     volumes:
-      - ../AI:/app
-    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app"]
+      - redis_data:/data
+    restart: unless-stopped
+
+  llmpress-worker:
+    build:
+      context: ${LLMPRESS_ROOT:-../AI}
+      dockerfile: Dockerfile
+    image: llmpress-worker:latest
+    container_name: llmpress-worker
+    volumes:
+      - ${LLMPRESS_ROOT:-../AI}:/app
     environment:
       - PYTHONPATH=/app
-      # Add this to see more debug info about reloading
       - PYTHONUNBUFFERED=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
     restart: unless-stopped
+    # Command is now defined in the Dockerfile with the entrypoint
+    runtime: nvidia  # Older Docker Compose versions
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
+    profiles: ["gpu"]
+    
+  backend:
+    build:
+      context: ..
+      dockerfile: Backend/Dockerfile
+    container_name: llmpress-backend
+    volumes:
+      - ../Backend:/app/Backend
+      - ${LLMPRESS_ROOT:-../AI}:/app/AI
+    environment:
+      - PYTHONPATH=/app:/app/AI
+      - PYTHONUNBUFFERED=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - llmpress-worker
+    restart: unless-stopped
+    profiles: ["gpu"]
+    working_dir: /app/Backend
+
+volumes:
+  redis_data:

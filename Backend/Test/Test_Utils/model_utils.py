@@ -2,30 +2,30 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-# Import the APIClient
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))) 
-from Backend.APIClient import APIClient
+from Backend.celery_client import CeleryClient
 
-def initialize_model(model_name="gpt2", use_api=False, api_url="http://localhost:8000"):
+def initialize_model(model_name="gpt2", k=64):
     """
-    Initialize a model instance - either direct GPT2 or API client.
+    Initialize a Celery client for distributed model access.
     
     Args:
-        model_name (str): The name of the model to initialize
-        use_api (bool): Whether to use the API client
-        api_url (str): URL for the API server
+        model_name (str): The name of the model to initialize (for compatibility)
+        k (int): Context size (for compatibility)
         
     Returns:
-        The initialized model or API client
+        The initialized Celery client
     """
-    if use_api:
-        print(f"Connecting to AI API at '{api_url}'...")
-        client = APIClient(base_url=api_url)
-        # Just return the client, error handling happens inside APIClient
-        return client
-    else:
-        print(f"Failed to connect to API at '{api_url}'")
-        #print(f"Initializing model '{model_name}'...")
-        # Import here to avoid circular imports
-        #from AI.ChatGPT2 import GPT2
-        #return GPT2(model_name=model_name)
+    print("Using Celery client for distributed processing...")
+    return CeleryClient()
+
+# Backward compatibility function for direct model initialization
+def initialize_direct_model(model_name="gpt2"):
+    """
+    This function is kept for backward compatibility but raises an error
+    when run in Docker environment.
+    """
+    print("Direct model initialization is disabled in Docker environment.")
+    raise NotImplementedError(
+        "Direct model access is not supported in the Docker environment. "
+        "Use the Celery client instead to avoid CUDA subprocess issues."
+    )

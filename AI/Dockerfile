@@ -28,8 +28,13 @@ RUN pip install --extra-index-url https://download.pytorch.org/whl/cu118 -r requ
 RUN mkdir -p /root/.cache/huggingface/hub
 RUN python3 -c "from transformers import GPT2LMHeadModel, GPT2Tokenizer; GPT2Tokenizer.from_pretrained('gpt2'); GPT2LMHeadModel.from_pretrained('gpt2')"
 
-# Copy AI module files
+# Copy worker application files
 COPY . .
 
-# Default command
-CMD ["python3", "-c", "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"]
+# Copy and set the entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Default command (will be passed to entrypoint)
+CMD ["celery", "-A", "tasks", "worker", "--loglevel=info", "--pool=solo"]
