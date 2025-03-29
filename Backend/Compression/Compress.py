@@ -1,12 +1,13 @@
 import sys
 import os
+from typing import Optional, Tuple, List, Any
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Compression import Tokenize
 from Compression import Encoder
 
-def compress(input_data, model, k=64, output_path=None):
+def compress(input_data, model, k=64, output_path=None) -> Tuple[bytes, int, int, List[Any]]:
     """
     Compress a string or text file.
     
@@ -30,8 +31,10 @@ def compress(input_data, model, k=64, output_path=None):
         text = input_data
         original_size = len(text.encode('utf-8'))
     
-    # Compression
+    # Step 1: Tokenization
     tokens = Tokenize.encode_text(text, model, k)
+    
+    # Step 2: Binary encoding
     bin_data = Encoder.encode_tokens(tokens.copy())
     compressed_size = len(bin_data)
     

@@ -1,9 +1,8 @@
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from typing import Union, List
-from .ai_interface import AI
 
-class GPT2(AI):
+class GPT2:
     def __init__(self, model_name="gpt2"):
         """
         Initialize the GPT-2 model and tokenizer.

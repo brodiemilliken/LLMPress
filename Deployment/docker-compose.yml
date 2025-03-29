@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  llmpress-ai:
+    build:
+      context: ../AI
+      dockerfile: Dockerfile
+    image: llmpress-ai:latest
+    container_name: llmpress-ai
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../AI:/app
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app"]
+    environment:
+      - PYTHONPATH=/app
+      # Add this to see more debug info about reloading
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
