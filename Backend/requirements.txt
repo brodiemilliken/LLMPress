@@ -1,3 +1,5 @@
 tabulate
 tqdm
 requests
+celery
+redis

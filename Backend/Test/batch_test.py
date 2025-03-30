@@ -115,8 +115,6 @@ def main():
     parser.add_argument("--k", type=int, default=64, help="Context window size (default: 64)")
     parser.add_argument("--model", default="gpt2", help="Model name to use (default: gpt2)")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
-    parser.add_argument("--api", action="store_true", help="Use API client instead of direct model")
-    parser.add_argument("--api-url", default="http://localhost:8000", help="URL for the API server")
     
     args = parser.parse_args()
     
@@ -128,8 +126,8 @@ def main():
     # Create output directory
     os.makedirs(args.output, exist_ok=True)
     
-    # Create model
-    model = initialize_model(args.model, use_api=args.api, api_url=args.api_url)
+    # Create model (default is now Celery)
+    model = initialize_model(args.model)
     
     # Process directory
     print(f"=== Processing Directory: {args.input} ===")
