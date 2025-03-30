@@ -33,7 +33,7 @@ class GPT2:
         self.model.eval()  # Set model to evaluation mode
         print(f"Model loaded successfully on {self.device}!")
         
-    def list_rank_tokens(self, tokens: list, k: int) -> list:
+    def list_rank_tokens(self, tokens: list, k: int = 64) -> list:
         """
         Predict the top K most likely next tokens given the input token sequence.
         
@@ -118,7 +118,7 @@ class GPT2:
         """
         return self.tokenizer.decode(tokens, skip_special_tokens=False, clean_up_tokenization_spaces=False)
 
-    def predict_next_words(self, text: str, k: int = 5) -> list:
+    def predict_next_words(self, text: str, k: int = 64) -> list:
         """
         Predict the top K most likely next words given an input text.
         
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     example_text = "The quick brown fox jumps over the lazy"
     
     # Get top 5 predictions
-    predictions = predictor.predict_next_words(example_text, k=8)
+    predictions = predictor.predict_next_words(example_text, k=64)
     
     # Display results
     print(f"\nInput text: '{example_text}'")

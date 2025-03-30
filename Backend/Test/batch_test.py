@@ -5,18 +5,14 @@ from tabulate import tabulate
 
 # Fix the import path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Backend.celery_client import CeleryClient  # Correct import path
-from Test_Utils import process_file
+from Backend.celery_client import CeleryClient
+from Compression.Compress import compress
+from Decompression.Decompress import decompress
+from Test_Utils.file_utils import compare_files
 
 def get_files_in_directory(directory_path):
     """
     Get all non-hidden files in a directory.
-    
-    Args:
-        directory_path (str): Path to the directory
-        
-    Returns:
-        list: List of file paths
     """
     file_paths = []
     for file in os.listdir(directory_path):
@@ -27,19 +23,78 @@ def get_files_in_directory(directory_path):
                 file_paths.append(full_path)
     return file_paths
 
-def process_directory(directory_path, model, window_size, output_dir="Output", debug=False):
+def process_file_in_memory(file_path, client, window_size, debug=False):
     """
-    Process all files in a directory.
+    Process a single file with compression and decompression without writing to disk.
     
     Args:
-        directory_path (str): Path to the directory with files to process
-        model: The language model
-        window_size (int): Size of the sliding context window
-        output_dir (str): Directory to store output files
-        debug (bool): Whether to save debug information
+        file_path: Path to the file to process
+        client: The CeleryClient instance
+        window_size: Size of the sliding context window
+        debug: Whether to enable debug mode
         
     Returns:
-        list: List of dictionaries with metrics for each file
+        dict: Dictionary with metrics and results
+    """
+    import time
+    
+    # Get file name without directory
+    file_name = os.path.basename(file_path)
+    
+    # Read the input file
+    with open(file_path, "r", encoding="utf-8") as f:
+        text = f.read()
+    original_size = os.path.getsize(file_path)
+    
+    # Compress
+    print(f"Compressing {file_name}...")
+    start_time = time.time()
+    bin_data, _, compressed_size, encoded_tokens = compress(text, client, window_size)
+    compression_time = time.time() - start_time
+    
+    # Decompress
+    print(f"Decompressing {file_name}...")
+    start_time = time.time()
+    decoded_text, decoded_tokens = decompress(bin_data, client, window_size)
+    decompression_time = time.time() - start_time
+    
+    # Check if content is identical
+    are_identical = (text == decoded_text)
+    
+    # Calculate compression ratio
+    compression_ratio = original_size / compressed_size if compressed_size > 0 else 0
+    
+    # Create output if debug is enabled
+    if debug:
+        # Create output directories
+        output_dir = "Output/Debug"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Save decompressed text
+        decompressed_path = os.path.join(output_dir, f"decompressed_{file_name}")
+        with open(decompressed_path, "w", encoding="utf-8") as f:
+            f.write(decoded_text)
+            
+        # Save compressed data
+        compressed_path = os.path.join(output_dir, f"{file_name}.bin")
+        with open(compressed_path, "wb") as f:
+            f.write(bin_data)
+            
+        print(f"Debug files saved to {output_dir}")
+    
+    return {
+        "file_name": file_name,
+        "original_size": original_size,
+        "compressed_size": compressed_size,
+        "compression_ratio": compression_ratio,
+        "identical": are_identical,
+        "compression_time": compression_time,
+        "decompression_time": decompression_time
+    }
+
+def process_directory(directory_path, client, window_size, debug=False):
+    """
+    Process all files in a directory.
     """
     file_paths = get_files_in_directory(directory_path)
     results = []
@@ -48,19 +103,14 @@ def process_directory(directory_path, model, window_size, output_dir="Output", d
     
     for i, file_path in enumerate(file_paths, 1):
         print(f"\nProcessing file {i}/{len(file_paths)}: {file_path}")
-        result = process_file(file_path, model, window_size, output_dir, verbose=True, debug=debug)
+        result = process_file_in_memory(file_path, client, window_size, debug)
         results.append(result)
         
     return results
 
-def display_results(results, output_dir="Output", debug=False):
+def display_results(results):
     """
     Display results in a nice table format.
-    
-    Args:
-        results (list): List of result dictionaries
-        output_dir (str): Directory to save results file
-        debug (bool): Whether debug mode is enabled
     """
     if not results:
         print("No files were processed.")
@@ -77,18 +127,9 @@ def display_results(results, output_dir="Output", debug=False):
             f"{r['decompression_time']:.2f}s",
             "Identical" if r["identical"] else "Different"
         ]
-        
-        # Add token comparison if debug mode is on
-        if debug and "tokens_identical" in r:
-            row.append("Yes" if r["tokens_identical"] else "No")
-            
         table_data.append(row)
     
     headers = ["File", "Original Size", "Compressed Size", "Ratio", "Comp Time", "Decomp Time", "Status"]
-    
-    # Add token comparison header if debug mode is on
-    if debug and results and "tokens_identical" in results[0]:
-        headers.append("Tokens Match")
     
     print("\n" + tabulate(table_data, headers=headers, tablefmt="grid"))
     
@@ -105,21 +146,14 @@ def display_results(results, output_dir="Output", debug=False):
     print(f"Total compressed size: {total_compressed:,} bytes")
     print(f"Average compression ratio: {avg_ratio:.2f}x")
     print(f"Space savings: {(1 - total_compressed/total_original) * 100:.2f}%")
-    
-    # Display token match stats if debug mode is on
-    if debug and results and "tokens_identical" in results[0]:
-        total_tokens_identical = sum(1 for r in results if r.get("tokens_identical", False))
-        print(f"Files with identical tokens: {total_tokens_identical}/{len(results)}")
 
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test LLMPress compression on a folder of files")
     parser.add_argument("--input", "-i", required=True, help="Input directory with files to compress")
-    parser.add_argument("--output", "-o", default="Output", help="Output directory for results")
     parser.add_argument("--window-size", "-w", type=int, default=64, 
                         help="Size of the sliding context window (default: 64)")
-    parser.add_argument("--model", default="gpt2", help="Model name to use (default: gpt2)")
-    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
+    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save files")
     
     args = parser.parse_args()
     
@@ -127,19 +161,16 @@ def main():
     if not os.path.isdir(args.input):
         print(f"Error: Input directory '{args.input}' does not exist or is not a directory")
         return
-        
-    # Create output directory
-    os.makedirs(args.output, exist_ok=True)
     
-    # Create model (default is now Celery)
-    api = CeleryClient()
+    # Create client
+    client = CeleryClient()
     
     # Process directory
     print(f"=== Processing Directory: {args.input} ===")
-    results = process_directory(args.input, api, args.window_size, args.output, debug=args.debug)
+    results = process_directory(args.input, client, args.window_size, args.debug)
     
     # Display results
-    display_results(results, args.output, debug=args.debug)
+    display_results(results)
 
 
 if __name__ == "__main__":

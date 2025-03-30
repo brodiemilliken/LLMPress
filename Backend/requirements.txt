@@ -3,5 +3,3 @@ tqdm
 requests
 celery
 redis
-matplotlib
-numpy

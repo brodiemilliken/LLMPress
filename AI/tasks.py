@@ -45,18 +45,30 @@ def get_model():
 
 # Define tasks
 @celery_app.task(name="tokenize_text", soft_time_limit=60)
-def tokenize_text(text: str, k: int = 64) -> List[Tuple[str, int]]:
-    """Task to tokenize text"""
+def tokenize_text(text: str, window_size: int = 64) -> List[Tuple[str, int]]:
+    """
+    Task to tokenize text
+    
+    Args:
+        text: The text to tokenize
+        window_size: Size of the sliding context window for token prediction
+    """
     from llm_tokenize import encode_text
     model = get_model()
-    return encode_text(text, model, k)
+    return encode_text(text, model, window_size)
 
 @celery_app.task(name="detokenize_tokens", soft_time_limit=60)
-def detokenize_tokens(tokens: List[List[Any]], k: int = 64) -> str:
-    """Task to detokenize tokens"""
+def detokenize_tokens(tokens: List[List[Any]], window_size: int = 64) -> str:
+    """
+    Task to detokenize tokens
+    
+    Args:
+        tokens: The token sequences to decode
+        window_size: Size of the sliding context window for token prediction
+    """
     from llm_detokenize import decode_tokens
     model = get_model()
-    return decode_tokens(tokens, model, k)
+    return decode_tokens(tokens, model, window_size)
 
 # Worker startup
 @celery_app.on_after_configure.connect
