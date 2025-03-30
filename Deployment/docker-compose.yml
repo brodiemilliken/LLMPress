@@ -15,7 +15,6 @@ services:
       context: ${LLMPRESS_ROOT:-../AI}
       dockerfile: Dockerfile
     image: llmpress-worker:latest
-    container_name: llmpress-worker
     volumes:
       - ${LLMPRESS_ROOT:-../AI}:/app
     environment:
