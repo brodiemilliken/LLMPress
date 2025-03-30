@@ -1,8 +1,12 @@
 import os
+import sys
 import argparse
 from tabulate import tabulate
-from Test_Utils import process_file, initialize_model
-from Test_Utils.file_utils import create_output_dirs
+
+# Fix the import path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from Backend.celery_client import CeleryClient  # Correct import path
+from Test_Utils import process_file
 
 def get_files_in_directory(directory_path):
     """
@@ -23,14 +27,14 @@ def get_files_in_directory(directory_path):
                 file_paths.append(full_path)
     return file_paths
 
-def process_directory(directory_path, model, k, output_dir="Output", debug=False):
+def process_directory(directory_path, model, window_size, output_dir="Output", debug=False):
     """
     Process all files in a directory.
     
     Args:
         directory_path (str): Path to the directory with files to process
         model: The language model
-        k (int): Context window size
+        window_size (int): Size of the sliding context window
         output_dir (str): Directory to store output files
         debug (bool): Whether to save debug information
         
@@ -44,7 +48,7 @@ def process_directory(directory_path, model, k, output_dir="Output", debug=False
     
     for i, file_path in enumerate(file_paths, 1):
         print(f"\nProcessing file {i}/{len(file_paths)}: {file_path}")
-        result = process_file(file_path, model, k, output_dir, verbose=True, debug=debug)
+        result = process_file(file_path, model, window_size, output_dir, verbose=True, debug=debug)
         results.append(result)
         
     return results
@@ -112,7 +116,8 @@ def main():
     parser = argparse.ArgumentParser(description="Test LLMPress compression on a folder of files")
     parser.add_argument("--input", "-i", required=True, help="Input directory with files to compress")
     parser.add_argument("--output", "-o", default="Output", help="Output directory for results")
-    parser.add_argument("--k", type=int, default=64, help="Context window size (default: 64)")
+    parser.add_argument("--window-size", "-w", type=int, default=64, 
+                        help="Size of the sliding context window (default: 64)")
     parser.add_argument("--model", default="gpt2", help="Model name to use (default: gpt2)")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
     
@@ -127,11 +132,11 @@ def main():
     os.makedirs(args.output, exist_ok=True)
     
     # Create model (default is now Celery)
-    model = initialize_model(args.model)
+    api = CeleryClient()
     
     # Process directory
     print(f"=== Processing Directory: {args.input} ===")
-    results = process_directory(args.input, model, args.k, args.output, debug=args.debug)
+    results = process_directory(args.input, api, args.window_size, args.output, debug=args.debug)
     
     # Display results
     display_results(results, args.output, debug=args.debug)

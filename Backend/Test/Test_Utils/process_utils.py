@@ -9,14 +9,14 @@ from Decompression.Decompress import decompress
 from .file_utils import create_output_dirs, compare_files
 from .token_utils import compare_tokens, save_debug_info, save_token_comparison
 
-def process_file(file_path, model, k, output_dir, verbose=False, debug=False):
+def process_file(file_path, model, window_size, output_dir, verbose=False, debug=False):
     """
     Process a single file with compression and decompression.
     
     Args:
         file_path (str): Path to the file to process
         model: The language model
-        k (int): Context window size
+        window_size (int): Size of the sliding context window for token prediction
         output_dir (str): Directory to store output files
         verbose (bool): Whether to print detailed information
         debug (bool): Whether to save debug information
@@ -50,7 +50,7 @@ def process_file(file_path, model, k, output_dir, verbose=False, debug=False):
     bin_data, original_size, compressed_size, encoded_tokens = compress(
         file_path, 
         model, 
-        k,
+        window_size,
         compressed_path
     )
     
@@ -60,7 +60,7 @@ def process_file(file_path, model, k, output_dir, verbose=False, debug=False):
     if verbose:
         print("\nDecompressing file...")
     start_time = time.time()
-    decoded_text, decoded_tokens = decompress(compressed_path, model, k, decompressed_path)
+    decoded_text, decoded_tokens = decompress(compressed_path, model, window_size, decompressed_path)
     decompression_time = time.time() - start_time
     
     # Compare tokens
@@ -105,14 +105,14 @@ def process_file(file_path, model, k, output_dir, verbose=False, debug=False):
         "decompression_time": decompression_time
     }
 
-def process_string(text_string, model, k, output_dir, verbose=False, debug=False):
+def process_string(text_string, model, window_size, output_dir, verbose=False, debug=False):
     """
     Process a text string with compression and decompression.
     
     Args:
         text_string (str): The string to process
         model: The language model
-        k (int): Context window size
+        window_size (int): Size of the sliding context window for token prediction
         output_dir (str): Directory to store output files
         verbose (bool): Whether to print detailed information
         debug (bool): Whether to save debug information
@@ -148,7 +148,7 @@ def process_string(text_string, model, k, output_dir, verbose=False, debug=False
     bin_data, original_size, compressed_size, encoded_tokens = compress(
         text_string, 
         model, 
-        k,
+        window_size,
         compressed_path
     )
     
@@ -158,7 +158,7 @@ def process_string(text_string, model, k, output_dir, verbose=False, debug=False
     if verbose:
         print("\nDecompressing data...")
     start_time = time.time()
-    decoded_text, decoded_tokens = decompress(compressed_path, model, k, decompressed_path)
+    decoded_text, decoded_tokens = decompress(compressed_path, model, window_size, decompressed_path)
     decompression_time = time.time() - start_time
     
     # Compare tokens

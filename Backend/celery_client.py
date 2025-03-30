@@ -1,5 +1,4 @@
 import sys
-import os
 from pathlib import Path
 
 from celery import Celery
@@ -16,21 +15,43 @@ except ImportError:
     from AI.tasks import tokenize_text, detokenize_tokens
 
 class CeleryClient:
-    def tokenize(self, text, timeout=60):
-        task = tokenize_text.delay(text)
+    def tokenize(self, text, window_size=64, timeout=60):
+        """
+        Tokenize text using Celery worker
+        
+        Args:
+            text: The text to tokenize
+            window_size: Size of the sliding context window for token prediction
+            timeout: Maximum time to wait for result in seconds
+            
+        Returns:
+            List of tokens with their positions
+        """
+        task = tokenize_text.delay(text, window_size)
         return task.get(timeout=timeout)
 
-    def detokenize(self, tokens, timeout=60):
-        task = detokenize_tokens.delay(tokens)
+    def detokenize(self, tokens, window_size=64, timeout=60):
+        """
+        Detokenize tokens using Celery worker
+        
+        Args:
+            tokens: The token sequences to decode
+            window_size: Size of the sliding context window for token prediction
+            timeout: Maximum time to wait for result in seconds
+            
+        Returns:
+            Reconstructed text
+        """
+        task = detokenize_tokens.delay(tokens, window_size)
         return task.get(timeout=timeout)
     
 _client = CeleryClient()
 
-def tokenize(text):
-    return _client.tokenize(text)
+def tokenize(text, window_size=64):
+    return _client.tokenize(text, window_size)
 
-def detokenize(tokens):
-    return _client.detokenize(tokens)
+def detokenize(tokens, window_size=64):
+    return _client.detokenize(tokens, window_size)
 
 # Example usage
 if __name__ == "__main__":
@@ -42,5 +63,5 @@ if __name__ == "__main__":
     print("Tokenized result:", tokens)
 
     print("\nDetokenizing tokens:")
-    result = client.detokenize(tokens)
-    print("Detokenized result:", result)
+    text_back = client.detokenize(tokens)
+    print("Detokenized result:", text_back)

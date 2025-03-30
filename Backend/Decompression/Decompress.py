@@ -7,14 +7,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Decompression import Detokenize
 from Decompression import Decoder
 
-def decompress(input_data, model, k=64, output_path=None) -> Tuple[str, List[Any]]:
+def decompress(input_data, model, window_size=64, output_path=None) -> Tuple[str, List[Any]]:
     """
     Decompress binary data or a compressed file.
     
     Args:
         input_data (bytes or str): Binary data or path to compressed file
         model: The language model to use for detokenization
-        k (int): Context window size (must match compression value)
+        window_size (int): Size of the sliding context window for token prediction (must match compression value)
         output_path (str, optional): Path to save decompressed text
         
     Returns:
@@ -35,7 +35,7 @@ def decompress(input_data, model, k=64, output_path=None) -> Tuple[str, List[Any
     tokens = Decoder.decode_bytes(bin_data)
     
     # Step 2: Detokenization
-    text = Detokenize.decode_tokens(tokens, model, k)
+    text = Detokenize.decode_tokens(tokens, model, window_size)
     
     decompressed_size = len(text.encode('utf-8'))
     

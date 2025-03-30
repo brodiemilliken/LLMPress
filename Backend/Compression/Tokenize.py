@@ -1,19 +1,19 @@
 from typing import List, Tuple
 
-def encode_text(text: str, api_client, k: int = 64) -> List[Tuple[str, int]]:
+def encode_text(text: str, api_client, window_size: int = 64) -> List[Tuple[str, int]]:
     """
     Encode text by using the API.
     
     Args:
         text (str): The text to encode.
         api_client: The API client to use.
-        k (int): The number of top predictions to consider.
+        window_size (int): Size of the sliding context window for token prediction.
         
     Returns:
         List[Tuple[str, int]]: A list of encoded tokens.
     """
-    # Simply pass the request to the API client
-    return api_client.tokenize(text)
+    # Pass the request to the API client with window_size parameter
+    return api_client.tokenize(text, window_size)
 
 def tokenize(text: str, api_client) -> list:
     """

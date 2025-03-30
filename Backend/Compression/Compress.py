@@ -7,14 +7,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from Compression import Tokenize
 from Compression import Encoder
 
-def compress(input_data, model, k=64, output_path=None) -> Tuple[bytes, int, int, List[Any]]:
+def compress(input_data, model, window_size=64, output_path=None) -> Tuple[bytes, int, int, List[Any]]:
     """
     Compress a string or text file.
     
     Args:
         input_data (str): Text string or path to text file
         model: The language model to use for tokenization
-        k (int): Context window size
+        window_size (int): Size of the sliding context window for token prediction
         output_path (str, optional): Path to save binary output
         
     Returns:
@@ -32,7 +32,7 @@ def compress(input_data, model, k=64, output_path=None) -> Tuple[bytes, int, int
         original_size = len(text.encode('utf-8'))
     
     # Step 1: Tokenization
-    tokens = Tokenize.encode_text(text, model, k)
+    tokens = Tokenize.encode_text(text, model, window_size)
     
     # Step 2: Binary encoding
     bin_data = Encoder.encode_tokens(tokens.copy())
