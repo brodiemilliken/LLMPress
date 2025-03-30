@@ -1,5 +1,5 @@
-from AI.ai_interface import AI
 from typing import Tuple, List
+import ChatGPT2 as AI
 
 def tokenize(text: str, model: AI) -> list:
     """
@@ -81,8 +81,10 @@ def encode_text(text: str, model: AI, k: int) -> List[Tuple[str, int]]:
         List[Tuple[str, int]]: A list of encoded tokens.
     """
     tokens = tokenize(text, model)
+    
     encoded_tokens = []
-    encoded_tokens.append(handle_explicit_token(tokens[0])) 
+    encoded_tokens.append(handle_explicit_token(tokens[0]))
+    
     for i in range(1, len(tokens)):
         encoded_tokens.append(handle_next_token(i, tokens, model, k))
         

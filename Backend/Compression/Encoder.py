@@ -80,18 +80,26 @@ def handle_explicit_bytes(token: Tuple[str,int]) -> bytes:
     """
     val = token[1]
     bit_length = val.bit_length()
-    if bit_length <= 6:
-        return bytes([0b10000000 | val])  # Encodes integers 0-63 (6 bits) in a single byte
+    
+    if bit_length <= 7:
+        # For values under 7 bits, use an empty start byte and put all bits in end byte
+        start_byte = 0b10000000  # Start byte with [1][0] and empty payload
+        end_byte = 0b10000000 | val  # End byte with stop flag [1] and the value as payload
+        return bytes([start_byte, end_byte])
     elif bit_length <= 13:
+        # For values with 7-13 bits, distribute the bits between two bytes
         start_byte = 0b10000000 | (val >> 7)  # Start byte with [1][0] and 6-bit payload
         end_byte = 0b10000000 | (val & 0b01111111)  # End byte with stop flag [1] and 7-bit payload
-        return bytes([start_byte, end_byte])  # Encodes integers 64-8191 (7-13 bits) in two bytes
+        return bytes([start_byte, end_byte])
     elif bit_length <= 20:
+        # For values with 14-20 bits, use three bytes
         start_byte = 0b10000000 | (val >> 14)  # Start byte with most significant 6 bits
         middle_byte = 0b00000000 | ((val >> 7) & 0b01111111)  # Middle byte with next 7 bits
         end_byte = 0b10000000 | (val & 0b01111111)  # End byte with least significant 7 bits
-        return bytes([start_byte, middle_byte, end_byte])  # Encodes integers 8192-1048575 (14-20 bits) in three bytes
-    return bytes([0b10111111])  # Placeholder for larger tokens, should be handled differently
+        return bytes([start_byte, middle_byte, end_byte])
+    
+    # Handle larger tokens
+    return bytes([0b10111111, 0b10111111])  # Placeholder for larger tokens
 
 def count_leading_zeros(tokens: list[Tuple[str,int]]) -> int:
     """

@@ -1,0 +1,86 @@
+# LLMPress: A Compression and Decompression Framework
+
+LLMPress is a framework designed for compressing and decompressing text files using advanced language models like GPT-2. It leverages tokenization and ranking techniques to achieve efficient compression while maintaining the integrity of the original content.
+
+## Features
+- **Compression**: Converts text into a compact binary format using token ranking and explicit encoding.
+- **Decompression**: Reconstructs the original text from the compressed binary format.
+- **Token Analysis**: Provides detailed insights into tokenization and encoding processes.
+- **Batch Processing**: Supports compressing and decompressing multiple files in a directory.
+- **Debug Mode**: Saves token information and comparisons for debugging purposes.
+
+## Requirements
+Install the required dependencies using the `requirements.txt` file:
+```bash
+pip install -r requirements.txt
+```
+
+## How to Run
+
+### 1. Running `batch_test.py`
+The `batch_test.py` script processes all files in a specified directory. It compresses and decompresses each file, then compares the results to ensure accuracy.
+
+#### Usage
+```bash
+python batch_test.py --input <input_directory> --output <output_directory> --k <context_window_size> --model <model_name> [--debug]
+```
+
+#### Arguments
+- `--input` or `-i`: Path to the directory containing files to process (required).
+- `--output` or `-o`: Path to the directory where results will be saved (default: `Output`).
+- `--k`: Context window size for token ranking (default: 64).
+- `--model`: Name of the language model to use (default: `gpt2`).
+- `--debug` or `-d`: Enable debug mode to save token information.
+
+#### Example
+```bash
+python batch_test.py --input Test/Small_Files --output Results --k 64 --model gpt2 --debug
+```
+
+### 2. Running `file_test.py`
+The `file_test.py` script processes a single file. It compresses and decompresses the file, then compares the results to ensure accuracy.
+
+#### Usage
+```bash
+python file_test.py --input <file_path> --output <output_directory> --k <context_window_size> --model <model_name> [--debug]
+```
+
+#### Arguments
+- `--input` or `-i`: Path to the file to process (required).
+- `--output` or `-o`: Path to the directory where results will be saved (default: `Output`).
+- `--k`: Context window size for token ranking (default: 64).
+- `--model`: Name of the language model to use (default: `gpt2`).
+- `--debug` or `-d`: Enable debug mode to save token information.
+
+#### Example
+```bash
+python file_test.py --input Test/Small_Files/sample.txt --output Results --k 64 --model gpt2 --debug
+```
+
+## Output
+- **Compressed Files**: Saved in the `Compressed` subdirectory of the output directory.
+- **Decompressed Files**: Saved in the `Results` subdirectory of the output directory.
+- **Debug Information**: Saved in the `Debug` subdirectory if debug mode is enabled.
+
+## Debug Mode
+When `--debug` is enabled, the following additional files are generated:
+- Encoded tokens
+- Decoded tokens
+
+These files are useful for analyzing the compression and decompression processes in detail.
+
+## Example Directory Structure
+```
+LLMPress/
+├── AI/
+├── Compression/
+├── Decompression/
+├── Test/
+│   ├── Small_Files/
+│   ├── Medium_Files/
+│   ├── batch_test.py
+│   ├── file_test.py
+│   └── Test_Utils/
+├── requirements.txt
+└── README
+```

@@ -1,5 +1,5 @@
-from AI.ai_interface import AI
 from typing import Tuple, List
+import ChatGPT2 as AI
 
 def detokenize(tokens: List[int], model: AI) -> str:
     """
@@ -64,9 +64,11 @@ def decode_tokens(tokens: list, model: AI, k: int) -> str:
         str: The decoded text string.
     """
     decoded_tokens = []
+    
     for token in tokens:
         next_token = handle_next_token(token, decoded_tokens, model, k)
         decoded_tokens.append(next_token)
+            
     return model.detokenize(decoded_tokens)
 
 
