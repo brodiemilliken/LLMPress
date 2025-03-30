@@ -40,7 +40,6 @@ services:
     build:
       context: ..
       dockerfile: Backend/Dockerfile
-    container_name: llmpress-backend
     volumes:
       - ../Backend:/app/Backend
       - ${LLMPRESS_ROOT:-../AI}:/app/AI
