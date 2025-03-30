@@ -44,14 +44,14 @@ def get_model():
     return _model
 
 # Define tasks
-@celery_app.task(name="tokenize_text")
+@celery_app.task(name="tokenize_text", soft_time_limit=60)
 def tokenize_text(text: str, k: int = 64) -> List[Tuple[str, int]]:
     """Task to tokenize text"""
     from llm_tokenize import encode_text
     model = get_model()
     return encode_text(text, model, k)
 
-@celery_app.task(name="detokenize_tokens")
+@celery_app.task(name="detokenize_tokens", soft_time_limit=60)
 def detokenize_tokens(tokens: List[List[Any]], k: int = 64) -> str:
     """Task to detokenize tokens"""
     from llm_detokenize import decode_tokens

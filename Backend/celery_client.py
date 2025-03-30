@@ -16,21 +16,21 @@ except ImportError:
     from AI.tasks import tokenize_text, detokenize_tokens
 
 class CeleryClient:
-    def tokenize(self, text, timeout=20):
+    def tokenize(self, text, timeout=60):
         task = tokenize_text.delay(text)
         return task.get(timeout=timeout)
 
-    def detokenize(self, tokens, timeout=20):
+    def detokenize(self, tokens, timeout=60):
         task = detokenize_tokens.delay(tokens)
         return task.get(timeout=timeout)
     
 _client = CeleryClient()
 
-def tokenize(text, timeout=20):
-    return _client.tokenize(text, timeout=timeout)
+def tokenize(text):
+    return _client.tokenize(text)
 
-def detokenize(tokens, timeout=20):
-    return _client.detokenize(tokens, timeout=timeout)
+def detokenize(tokens):
+    return _client.detokenize(tokens)
 
 # Example usage
 if __name__ == "__main__":
