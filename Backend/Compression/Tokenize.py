@@ -28,3 +28,17 @@ def tokenize(text: str, api_client) -> list:
     """
     # This is for compatibility with code that expects this function
     return api_client.tokenize(text)
+
+def tokenize_chunks(texts: List[str], api_client, window_size: int = 64) -> List[List[Tuple[str, int]]]:
+    """
+    Tokenize multiple text chunks using the API client.
+    
+    Args:
+        texts (List[str]): List of text chunks to tokenize.
+        api_client: The API client to use.
+        window_size (int): Size of the sliding context window for token prediction.
+        
+    Returns:
+        List[List[Tuple[str, int]]]: A list of lists of encoded tokens.
+    """
+    return api_client.tokenize_chunks(texts, window_size)

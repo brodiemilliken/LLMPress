@@ -18,10 +18,23 @@ Exlpicit Byte Format:
 Continuous Zero Byte Format:
     Used for encoding a series of continuous zeroes
     [1][1][6x Payload] where the payload represents the number of continuous zeroes
+
+Special Tokens:
+    <BREAK> Token: Used to mark chunk boundaries
+    Encoded as a single byte with value 11111111 (0xFF)
 """
 
 from typing import Tuple, List
 from typing import Tuple, List, Union
+
+def handle_break_token() -> Tuple[str, int]:
+    """
+    Handles the special <BREAK> token (0xFF).
+    
+    Returns:
+        Tuple[str, int]: A tuple with the special token "<BREAK>" and a value of 0.
+    """
+    return ("<BREAK>", 0)
 
 def handle_rank_byte(byte: int) -> Tuple[str, int]:
     """
@@ -129,6 +142,10 @@ def handle_next_bytes(bytes_data: bytes, idx: int) -> Tuple[List[Tuple[str,int]]
     """
     if idx >= len(bytes_data):
         return [], idx  # Safety check for end of data
+    
+    # Check for special <BREAK> token (0xFF)
+    if bytes_data[idx] == 0xFF:
+        return [handle_break_token()], idx + 1
         
     if (bytes_data[idx] & 0b11000000) == 0b00000000:  # Rank byte
         return [handle_rank_byte(bytes_data[idx])], idx + 1

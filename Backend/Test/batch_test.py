@@ -5,7 +5,7 @@ from tabulate import tabulate
 
 # Fix the import path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Backend.celery_client import CeleryClient
+from celery_client import CeleryClient
 from Compression.Compress import compress
 from Decompression.Decompress import decompress
 from Test_Utils.file_utils import compare_files
@@ -37,60 +37,118 @@ def process_file_in_memory(file_path, client, window_size, debug=False):
         dict: Dictionary with metrics and results
     """
     import time
+    import tempfile
     
     # Get file name without directory
     file_name = os.path.basename(file_path)
-    
-    # Read the input file
-    with open(file_path, "r", encoding="utf-8") as f:
-        text = f.read()
     original_size = os.path.getsize(file_path)
     
-    # Compress
-    print(f"Compressing {file_name}...")
-    start_time = time.time()
-    bin_data, _, compressed_size, encoded_tokens = compress(text, client, window_size)
-    compression_time = time.time() - start_time
-    
-    # Decompress
-    print(f"Decompressing {file_name}...")
-    start_time = time.time()
-    decoded_text, decoded_tokens = decompress(bin_data, client, window_size)
-    decompression_time = time.time() - start_time
-    
-    # Check if content is identical
-    are_identical = (text == decoded_text)
-    
-    # Calculate compression ratio
-    compression_ratio = original_size / compressed_size if compressed_size > 0 else 0
-    
-    # Create output if debug is enabled
-    if debug:
-        # Create output directories
-        output_dir = "Output/Debug"
-        os.makedirs(output_dir, exist_ok=True)
+    try:
+        # First read the file content
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                original_text = f.read()
+        except UnicodeDecodeError:
+            # Try with alternative encoding if utf-8 fails
+            with open(file_path, "r", encoding="latin-1") as f:
+                original_text = f.read()
         
-        # Save decompressed text
-        decompressed_path = os.path.join(output_dir, f"decompressed_{file_name}")
-        with open(decompressed_path, "w", encoding="utf-8") as f:
+        # Compress - pass the file path directly to compress function
+        print(f"Compressing {file_name}...")
+        start_time = time.time()
+        bin_data, _, compressed_size, encoded_tokens = compress(file_path, client, window_size)
+        compression_time = time.time() - start_time
+        
+        # Decompress
+        print(f"Decompressing {file_name}...")
+        start_time = time.time()
+        decoded_text, decoded_tokens = decompress(bin_data, client, window_size)
+        decompression_time = time.time() - start_time
+        
+        # Convert list to string if needed
+        if isinstance(decoded_text, list):
+            decoded_text = ''.join(decoded_text)
+        
+        # Check if content is identical using file-based comparison
+        # This handles line ending differences and other subtle issues
+        temp_dir = tempfile.mkdtemp()
+        
+        # Write original content to temp file
+        original_temp_path = os.path.join(temp_dir, "original.txt")
+        with open(original_temp_path, "w", encoding="utf-8") as f:
+            f.write(original_text)
+            
+        # Write decoded content to temp file
+        decoded_temp_path = os.path.join(temp_dir, "decoded.txt")
+        with open(decoded_temp_path, "w", encoding="utf-8") as f:
             f.write(decoded_text)
             
-        # Save compressed data
-        compressed_path = os.path.join(output_dir, f"{file_name}.bin")
-        with open(compressed_path, "wb") as f:
-            f.write(bin_data)
+        # Compare the files
+        are_identical = compare_files(original_temp_path, decoded_temp_path)
+        diff = "" if are_identical else "Files differ"
+
+        # Print differences if not identical
+        if not are_identical and debug:
+            print("\nDifferences found between original and decompressed files:")
+            print("Content differs - see debug output for details")
+        
+        # Calculate compression ratio
+        compression_ratio = original_size / compressed_size if compressed_size > 0 else 0
+        
+        # Create output if debug is enabled
+        if debug:
+            # Create output directories
+            output_dir = "Output/Debug"
+            os.makedirs(output_dir, exist_ok=True)
             
-        print(f"Debug files saved to {output_dir}")
-    
-    return {
-        "file_name": file_name,
-        "original_size": original_size,
-        "compressed_size": compressed_size,
-        "compression_ratio": compression_ratio,
-        "identical": are_identical,
-        "compression_time": compression_time,
-        "decompression_time": decompression_time
-    }
+            # Save decompressed text
+            decompressed_path = os.path.join(output_dir, f"decompressed_{file_name}")
+            with open(decompressed_path, "w", encoding="utf-8") as f:
+                f.write(decoded_text)
+                
+            # Save original text for comparison
+            original_output_path = os.path.join(output_dir, f"original_{file_name}")
+            with open(original_output_path, "w", encoding="utf-8") as f:
+                f.write(original_text)
+                
+            # Save compressed data
+            compressed_path = os.path.join(output_dir, f"{file_name}.bin")
+            with open(compressed_path, "wb") as f:
+                f.write(bin_data)
+        
+        # Clean up temp files
+        try:
+            os.remove(original_temp_path)
+            os.remove(decoded_temp_path)
+            os.rmdir(temp_dir)
+        except:
+            pass
+        
+        return {
+            "file_name": file_name,
+            "original_size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": compression_ratio,
+            "identical": are_identical,
+            "compression_time": compression_time,
+            "decompression_time": decompression_time,
+            "diff": diff if not are_identical else ""
+        }
+    except Exception as e:
+        print(f"Error processing {file_name}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "file_name": file_name,
+            "original_size": original_size,
+            "compressed_size": 0,
+            "compression_ratio": 0,
+            "identical": False,
+            "compression_time": 0,
+            "decompression_time": 0,
+            "error": str(e)
+        }
 
 def process_directory(directory_path, client, window_size, debug=False):
     """
