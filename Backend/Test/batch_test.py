@@ -26,17 +26,6 @@ def get_files_in_directory(directory_path):
 def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_chunk=500, debug=False):
     """
     Process a single file with compression and decompression without writing to disk.
-    
-    Args:
-        file_path: Path to the file to process
-        client: The CeleryClient instance
-        window_size: Size of the sliding context window
-        min_chunk: Minimum chunk size in bytes
-        max_chunk: Maximum chunk size in bytes
-        debug: Whether to enable debug mode
-        
-    Returns:
-        dict: Dictionary with metrics and results
     """
     import time
     import tempfile
@@ -63,32 +52,28 @@ def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_ch
         )
         compression_time = time.time() - start_time
         
-        # Decompress
+        # Create temp directory for decompress output
+        temp_dir = tempfile.mkdtemp()
+        decompressed_temp_path = os.path.join(temp_dir, "decompressed.txt")
+        
+        # Decompress - note we're only passing three arguments now
         print(f"Decompressing {file_name}...")
         start_time = time.time()
-        decoded_text, decoded_tokens = decompress(bin_data, client, window_size)
+        decoded_text, decoded_tokens = decompress(bin_data, client, decompressed_temp_path)
         decompression_time = time.time() - start_time
         
-        # Convert list to string if needed
-        if isinstance(decoded_text, list):
-            decoded_text = ''.join(decoded_text)
+        # Read the decompressed content from the file
+        with open(decompressed_temp_path, "r", encoding="utf-8", errors="replace") as f:
+            decoded_text = f.read()
         
         # Check if content is identical using file-based comparison
         # This handles line ending differences and other subtle issues
-        temp_dir = tempfile.mkdtemp()
-        
-        # Write original content to temp file
         original_temp_path = os.path.join(temp_dir, "original.txt")
         with open(original_temp_path, "w", encoding="utf-8") as f:
             f.write(original_text)
-            
-        # Write decoded content to temp file
-        decoded_temp_path = os.path.join(temp_dir, "decoded.txt")
-        with open(decoded_temp_path, "w", encoding="utf-8") as f:
-            f.write(decoded_text)
-            
+        
         # Compare the files
-        are_identical = compare_files(original_temp_path, decoded_temp_path)
+        are_identical = compare_files(original_temp_path, decompressed_temp_path)
         diff = "" if are_identical else "Files differ"
 
         # Print differences if not identical
@@ -123,7 +108,7 @@ def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_ch
         # Clean up temp files
         try:
             os.remove(original_temp_path)
-            os.remove(decoded_temp_path)
+            os.remove(decompressed_temp_path)
             os.rmdir(temp_dir)
         except:
             pass
