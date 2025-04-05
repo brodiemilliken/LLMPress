@@ -52,6 +52,8 @@ def main():
                         help="Size of the sliding context window (default: 64)")
     parser.add_argument("--model", default="gpt2", help="Model name to use (default: gpt2)")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
+    parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
+    parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
     
     args = parser.parse_args()
     
@@ -68,7 +70,9 @@ def main():
         
     # Process file
     print(f"=== Processing File: {args.input} ===")
-    result = process_file(args.input, api, args.window_size, args.output, verbose=True, debug=args.debug)
+    result = process_file(args.input, api, args.window_size, args.output, 
+                         verbose=True, debug=args.debug, 
+                         min_chunk=args.min_chunk, max_chunk=args.max_chunk)
     
     # Display results
     display_results(result, args.output, debug=args.debug)

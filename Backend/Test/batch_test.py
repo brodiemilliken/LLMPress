@@ -23,7 +23,7 @@ def get_files_in_directory(directory_path):
                 file_paths.append(full_path)
     return file_paths
 
-def process_file_in_memory(file_path, client, window_size, debug=False):
+def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_chunk=500, debug=False):
     """
     Process a single file with compression and decompression without writing to disk.
     
@@ -31,6 +31,8 @@ def process_file_in_memory(file_path, client, window_size, debug=False):
         file_path: Path to the file to process
         client: The CeleryClient instance
         window_size: Size of the sliding context window
+        min_chunk: Minimum chunk size in bytes
+        max_chunk: Maximum chunk size in bytes
         debug: Whether to enable debug mode
         
     Returns:
@@ -56,7 +58,9 @@ def process_file_in_memory(file_path, client, window_size, debug=False):
         # Compress - pass the file path directly to compress function
         print(f"Compressing {file_name}...")
         start_time = time.time()
-        bin_data, _, compressed_size, encoded_tokens = compress(file_path, client, window_size)
+        bin_data, _, compressed_size, encoded_tokens = compress(
+            file_path, client, window_size, None, min_chunk, max_chunk
+        )
         compression_time = time.time() - start_time
         
         # Decompress
@@ -150,7 +154,7 @@ def process_file_in_memory(file_path, client, window_size, debug=False):
             "error": str(e)
         }
 
-def process_directory(directory_path, client, window_size, debug=False):
+def process_directory(directory_path, client, window_size, min_chunk=100, max_chunk=500, debug=False):
     """
     Process all files in a directory.
     """
@@ -161,7 +165,7 @@ def process_directory(directory_path, client, window_size, debug=False):
     
     for i, file_path in enumerate(file_paths, 1):
         print(f"\nProcessing file {i}/{len(file_paths)}: {file_path}")
-        result = process_file_in_memory(file_path, client, window_size, debug)
+        result = process_file_in_memory(file_path, client, window_size, min_chunk, max_chunk, debug)
         results.append(result)
         
     return results
@@ -212,6 +216,8 @@ def main():
     parser.add_argument("--window-size", "-w", type=int, default=64, 
                         help="Size of the sliding context window (default: 64)")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save files")
+    parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
+    parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
     
     args = parser.parse_args()
     
@@ -225,7 +231,8 @@ def main():
     
     # Process directory
     print(f"=== Processing Directory: {args.input} ===")
-    results = process_directory(args.input, client, args.window_size, args.debug)
+    results = process_directory(args.input, client, args.window_size, 
+                               args.min_chunk, args.max_chunk, args.debug)
     
     # Display results
     display_results(results)

@@ -9,7 +9,7 @@ from Decompression.Decompress import decompress
 from .file_utils import create_output_dirs, compare_files
 from .token_utils import compare_tokens, save_debug_info, save_token_comparison
 
-def process_file(file_path, model, window_size, output_dir, verbose=False, debug=False):
+def process_file(file_path, model, window_size, output_dir, verbose=False, debug=False, min_chunk=100, max_chunk=500):
     """
     Process a single file with compression and decompression.
     
@@ -20,6 +20,8 @@ def process_file(file_path, model, window_size, output_dir, verbose=False, debug
         output_dir (str): Directory to store output files
         verbose (bool): Whether to print detailed information
         debug (bool): Whether to save debug information
+        min_chunk (int): Minimum chunk size in bytes
+        max_chunk (int): Maximum chunk size in bytes
         
     Returns:
         dict: Dictionary with metrics and results
@@ -51,7 +53,9 @@ def process_file(file_path, model, window_size, output_dir, verbose=False, debug
         file_path, 
         model, 
         window_size,
-        compressed_path
+        compressed_path,
+        min_chunk,
+        max_chunk
     )
     
     compression_time = time.time() - start_time
