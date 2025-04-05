@@ -67,16 +67,11 @@ def explicit_bytes_length(bytes_data: bytes, idx: int) -> int:
     """
     Determines the length of the explicit token starting at idx.
     
-    New rules based on the token formatting:
-      - 2-byte token: Byte0: [1][0][6-bit payload]; Byte1: [1][0][6-bit payload]
-      - 3-byte token: Byte0: [1][0][6-bit payload]; Byte1: [0][7-bit payload]; Byte2: [1][0][6-bit payload]
-      - 4-byte token: Byte0: [1][0][6-bit payload]; Byte1: [0][7-bit payload]; Byte2: [0][7-bit payload]; Byte3: [1][0][6-bit payload]
-    
-    Logic:
-      If the second byte’s MSB is set then it’s a 2-byte token.
-      Otherwise, if the second byte’s MSB is clear then:
-         - if the third byte’s MSB is set → 3-byte token.
-         - if the third byte’s MSB is clear and a fourth byte exists (with MSB set) → 4-byte token.
+    The explicit token format is:
+      - 2-byte token: Start: [1][0][6-bit payload]; Stop: [1][7-bit payload]
+      - 3-byte token: Start: [1][0][6-bit payload]; Middle: [0][7-bit payload]; Stop: [1][7-bit payload]
+      - 4-byte token: Start: [1][0][6-bit payload]; Middle1: [0][7-bit payload]; 
+                      Middle2: [0][7-bit payload]; Stop: [1][7-bit payload]
     
     Args:
         bytes_data (bytes): The byte sequence.
@@ -87,35 +82,39 @@ def explicit_bytes_length(bytes_data: bytes, idx: int) -> int:
     """
     if idx + 1 >= len(bytes_data):
         return 1  # Fallback, though normally explicit tokens are at least 2 bytes.
-    # Check second byte:
+    
+    # Check the second byte
     if (bytes_data[idx+1] & 0b10000000) != 0:
-        return 2  # 2-byte token (stop byte immediately follows start byte)
-    # Second byte's MSB clear → we have at least a middle byte.
-    if idx + 2 < len(bytes_data):
-        # If third byte's MSB is set, then it's a 3-byte token.
-        if (bytes_data[idx+2] & 0b10000000) != 0:
-            return 3
-        # Otherwise, if fourth byte exists and has MSB set, it's a 4-byte token.
-        if idx + 3 < len(bytes_data) and (bytes_data[idx+3] & 0b10000000) != 0:
-            return 4
-        # Otherwise, fallback to 3 bytes.
-        return 3
-    return 2
+        return 2  # 2-byte token: second byte is stop (msb=1)
+    else:
+        # Byte at idx+1 is a middle byte (msb=0). Check byte at idx+2.
+        if idx + 2 < len(bytes_data):
+            if (bytes_data[idx+2] & 0b10000000) != 0:
+                return 3  # 3-byte token: third byte is stop (msb=1)
+            else:
+                # Both idx+1 and idx+2 are middle bytes. Now, if byte at idx+3 exists and is stop:
+                if idx + 3 < len(bytes_data) and ((bytes_data[idx+3] & 0b10000000) != 0):
+                    return 4  # 4-byte token
+                else:
+                    # Fallback if not enough bytes – default to 3-byte token
+                    return 3
+        else:
+            # Not enough bytes after middle – fallback to 2
+            return 2
 
 def handle_explicit_bytes(bytes_data: bytes) -> Tuple[str, int]:
     """
     Decodes an explicit token.
     
-    The new explicit formats are:
-      - 1-byte token: [1][0][6-bit payload]
-          → value: 6 bits.
-      - 2-byte token: [1][0][6-bit payload] (start), [1][0][6-bit payload] (stop)
-          → value = (start_payload << 6) | stop_payload   (12 bits max)
-      - 3-byte token: [1][0][6-bit payload] (start), [0][7-bit payload] (middle), [1][0][6-bit payload] (stop)
-          → value = (start_payload << 13) | (middle_payload << 6) | stop_payload   (19 bits max)
-      - 4-byte token: [1][0][6-bit payload] (start), [0][7-bit payload] (middle1), [0][7-bit payload] (middle2), [1][0][6-bit payload] (stop)
-          → value = (start_payload << 20) | (middle1_payload << 13) 
-                      | (middle2_payload << 6) | stop_payload   (26 bits max)
+    The explicit format is:
+      - 2-byte token: Start: [1][0][6-bit payload]; Stop: [1][7-bit payload]
+          → value = (start_payload << 7) | stop_payload   (13 bits max)
+      - 3-byte token: Start: [1][0][6-bit payload]; Middle: [0][7-bit payload]; Stop: [1][7-bit payload]
+          → value = (start_payload << 14) | (middle_payload << 7) | stop_payload   (20 bits max)
+      - 4-byte token: Start: [1][0][6-bit payload]; Middle1: [0][7-bit payload]; 
+                      Middle2: [0][7-bit payload]; Stop: [1][7-bit payload]
+          → value = (start_payload << 21) | (middle_payload1 << 14) 
+                      | (middle_payload2 << 7) | stop_payload   (27 bits max)
     
     Args:
         bytes_data (bytes): The byte sequence representing the token.
@@ -130,23 +129,23 @@ def handle_explicit_bytes(bytes_data: bytes) -> Tuple[str, int]:
     elif len(bytes_data) == 2:
         # 2-byte explicit token.
         start_payload = bytes_data[0] & 0b00111111
-        stop_payload = bytes_data[1] & 0b00111111
-        value = (start_payload << 6) | stop_payload
+        stop_payload = bytes_data[1] & 0b01111111  # 7-bit payload in stop byte
+        value = (start_payload << 7) | stop_payload
         return ("e", value)
     elif len(bytes_data) == 3:
         # 3-byte explicit token.
         start_payload = bytes_data[0] & 0b00111111
-        middle_payload = bytes_data[1] & 0b01111111  # Middle byte must start with 0.
-        stop_payload = bytes_data[2] & 0b00111111
-        value = (start_payload << 13) | (middle_payload << 6) | stop_payload
+        middle_payload = bytes_data[1] & 0b01111111  # 7-bit payload in middle byte
+        stop_payload = bytes_data[2] & 0b01111111  # 7-bit payload in stop byte
+        value = (start_payload << 14) | (middle_payload << 7) | stop_payload
         return ("e", value)
     elif len(bytes_data) == 4:
         # 4-byte explicit token.
         start_payload = bytes_data[0] & 0b00111111
-        middle_payload1 = bytes_data[1] & 0b01111111  # First middle byte starts with 0.
-        middle_payload2 = bytes_data[2] & 0b01111111  # Second middle byte starts with 0.
-        stop_payload = bytes_data[3] & 0b00111111
-        value = (start_payload << 20) | (middle_payload1 << 13) | (middle_payload2 << 6) | stop_payload
+        middle_payload1 = bytes_data[1] & 0b01111111  # 7-bit payload in first middle byte
+        middle_payload2 = bytes_data[2] & 0b01111111  # 7-bit payload in second middle byte
+        stop_payload = bytes_data[3] & 0b01111111  # 7-bit payload in stop byte
+        value = (start_payload << 21) | (middle_payload1 << 14) | (middle_payload2 << 7) | stop_payload
         return ("e", value)
     else:
         raise ValueError("Invalid explicit token length.")
