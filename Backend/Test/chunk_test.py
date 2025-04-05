@@ -5,13 +5,14 @@ import hashlib
 import logging
 
 # Import the simplified logging config
-from utils.logging_config import configure_logging
+from Backend.utils.logging_config import configure_logging
 
 # Import using proper package structure
 from Backend.Compression.file_splitter import chunk_file, split_text
 from Backend.Compression.tokenizer import tokenize_chunks
 from Backend.Decompression.detokenizer import detokenize
 from Backend.celery_client import CeleryClient
+from Backend.config import get_preset  # Import the configuration system
 
 def verify_data_integrity(original_text, chunks):
     """
@@ -193,21 +194,39 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test text chunking and tokenization")
     parser.add_argument("--input", "-i", required=True, help="Path to the file to chunk")
-    parser.add_argument("--min", "-m", type=int, default=50, help="Minimum chunk size in bytes")
-    parser.add_argument("--max", "-M", type=int, default=300, help="Maximum chunk size in bytes")
-    parser.add_argument("--window", "-w", type=int, default=64, help="Window size for tokenization")
+    parser.add_argument("--min", "-m", type=int, help="Minimum chunk size in bytes (default: from config)")
+    parser.add_argument("--max", "-M", type=int, help="Maximum chunk size in bytes (default: from config)")
+    parser.add_argument("--window", "-w", type=int, help="Window size for tokenization (default: from config)")
     parser.add_argument("--tokenize", "-t", action="store_true", help="Also perform tokenization after chunking")
     parser.add_argument("--output", "-o", help="Output the reconstructed text to a file for comparison")
     parser.add_argument("--log-level", choices=["quiet", "normal", "verbose", "debug"], 
-                        default="quiet", help="Set logging verbosity (default: quiet)")
+                        default=None, help="Set logging verbosity (default: from config)")
+    parser.add_argument("--model", default="gpt2", help="Model preset to use for configuration (default: gpt2)")
     
     args = parser.parse_args()
     
+    # Load configuration based on model
+    config = get_preset(args.model)
+    
+    # Get parameters from config if not specified
+    window_size = args.window if args.window is not None else config.window_size()
+    min_chunk = args.min if args.min is not None else config.min_chunk_size()
+    max_chunk = args.max if args.max is not None else config.max_chunk_size()
+    log_level = args.log_level if args.log_level is not None else config.log_level()
+    
     # Configure logging with single parameter
-    configure_logging(args.log_level)
+    configure_logging(log_level)
+
+    # Print configuration
+    print(f"\n=== Chunk Test Configuration ===")
+    print(f"Input file: {args.input}")
+    print(f"Model preset: {args.model}")
+    print(f"Min chunk size: {min_chunk} bytes")
+    print(f"Max chunk size: {max_chunk} bytes")
+    print(f"Window size: {window_size}")
     
     # Test chunking
-    chunks = test_file(args.input, args.min, args.max)
+    chunks = test_file(args.input, min_chunk, max_chunk)
     
     # If requested, save the reconstructed text to verify manually
     if args.output and chunks:
@@ -218,7 +237,7 @@ def main():
 
     # Test tokenization if requested
     if args.tokenize and chunks:
-        tokenized_chunks = test_tokenize(chunks, args.window)
+        tokenized_chunks = test_tokenize(chunks, window_size)
         return chunks, tokenized_chunks
     
     return chunks

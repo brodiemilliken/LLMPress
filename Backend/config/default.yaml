@@ -1,0 +1,8 @@
+# Default configuration for LLMPress
+compression:
+  window_size: 64      # Default sliding context window size
+  min_chunk_size: 100  # Minimum chunk size in bytes
+  max_chunk_size: 500  # Maximum chunk size in bytes
+
+general:
+  log_level: quiet     # Default logging level (quiet, normal, verbose, debug)

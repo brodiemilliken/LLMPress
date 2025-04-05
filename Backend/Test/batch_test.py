@@ -10,6 +10,7 @@ from Backend.celery_client import CeleryClient
 from Backend.Compression.compressor import compress
 from Backend.Decompression.decompressor import decompress
 from Backend.Test.test_utils.file_utils import compare_files
+from Backend.config import get_preset  # Import the config module
 
 def get_files_in_directory(directory_path):
     """
@@ -177,18 +178,27 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test LLMPress compression on a folder of files")
     parser.add_argument("--input", "-i", required=True, help="Input directory with files to compress")
-    parser.add_argument("--window-size", "-w", type=int, default=64, 
-                        help="Size of the sliding context window (default: 64)")
+    parser.add_argument("--window-size", "-w", type=int, help="Size of the sliding context window (default: from config)")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save files")
-    parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
-    parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
+    parser.add_argument("--min-chunk", "-min", type=int, help="Minimum chunk size in bytes (default: from config)")
+    parser.add_argument("--max-chunk", "-max", type=int, help="Maximum chunk size in bytes (default: from config)")
     parser.add_argument("--log-level", choices=["quiet", "normal", "verbose", "debug"], 
-                        default="quiet", help="Set logging verbosity (default: quiet)")
+                        default=None, help="Set logging verbosity (default: from config)")
+    parser.add_argument("--model", "-m", default="gpt2", help="Model preset to use (default: gpt2)")
     
     args = parser.parse_args()
     
-    # Configure logging with single parameter
-    configure_logging(args.log_level)
+    # Load configuration based on model
+    config = get_preset(args.model)
+    
+    # Get parameters from config if not specified
+    window_size = args.window_size if args.window_size is not None else config.window_size()
+    min_chunk = args.min_chunk if args.min_chunk is not None else config.min_chunk_size()
+    max_chunk = args.max_chunk if args.max_chunk is not None else config.max_chunk_size()
+    log_level = args.log_level if args.log_level is not None else config.log_level()
+    
+    # Configure logging
+    configure_logging(log_level)
     
     # Validate input directory
     if not os.path.isdir(args.input):
@@ -198,10 +208,19 @@ def main():
     # Create client
     client = CeleryClient()
     
+    # Print configuration
+    print(f"\n=== Batch Processing Configuration ===")
+    print(f"Input directory: {args.input}")
+    print(f"Model preset: {args.model}")
+    print(f"Window size: {window_size}")
+    print(f"Min chunk size: {min_chunk} bytes")
+    print(f"Max chunk size: {max_chunk} bytes")
+    print(f"Debug mode: {'Enabled' if args.debug else 'Disabled'}")
+    
     # Process directory
     print(f"=== Processing Directory: {args.input} ===")
-    results = process_directory(args.input, client, args.window_size, 
-                               args.min_chunk, args.max_chunk, args.debug)
+    results = process_directory(args.input, client, window_size, 
+                               min_chunk, max_chunk, args.debug)
     
     # Display results
     display_results(results)
