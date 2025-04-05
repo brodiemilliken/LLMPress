@@ -19,7 +19,7 @@ def split_tokens_by_breaks(tokens: List[Tuple[str, int]]) -> List[List[Tuple[str
     """
     if not tokens:
         return []
-    
+    #print(tokens)    
     # Find indices of all break tokens
     break_indices = [i for i, token in enumerate(tokens) if token[0] == "<BREAK>"]
     
@@ -43,14 +43,14 @@ def split_tokens_by_breaks(tokens: List[Tuple[str, int]]) -> List[List[Tuple[str
     
     return chunks
 
-def decompress(input_data, model, window_size=64, output_path=None) -> Tuple[str, List[Any]]:
+def decompress(input_data, model, output_path=None) -> Tuple[str, List[Any]]:
     """
     Decompress binary data or a compressed file.
     
     Args:
         input_data (bytes or str): Binary data or path to compressed file
         model: The language model to use for detokenization
-        window_size (int): Size of the sliding context window for token prediction (must match compression value)
+        window_size (int): Size of the sliding context window for token prediction (default value if not encoded)
         output_path (str, optional): Path to save decompressed text
         
     Returns:
@@ -65,21 +65,27 @@ def decompress(input_data, model, window_size=64, output_path=None) -> Tuple[str
         # It's binary data
         bin_data = input_data
     
-    # Step 1: Binary decoding
-    tokens = Decoder.decode_bytes(bin_data)
+    # Step 1: Binary decoding - now also returns window size
+    tokens, encoded_window_size = Decoder.decode_bytes(bin_data)
+    # Use the encoded window size if available, otherwise use the provided default
+    window_size = encoded_window_size if encoded_window_size > 0 else window_size
     
     # Step 2: Split tokens into chunks at <BREAK> markers
     token_chunks = split_tokens_by_breaks(tokens)
     
+    # for token_chunk in token_chunks:
+    #     print("Token chunk:")
+    #     print(token_chunk)
     # Step 3: Detokenize all chunks and combine them
     text = Detokenize.detokenize_chunks(token_chunks, model, window_size)
-    
     # Save text if path provided
     if output_path:
         if isinstance(text, list):
             text = ''.join(text)
         with open(output_path, "w", encoding="utf-8") as file:
             file.write(text)
+    
+    #print(text)
     
     return text, tokens
 

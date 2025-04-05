@@ -42,7 +42,7 @@ def combine_tokenized_chunks(tokenized_chunks: List[List[Tuple[str, int]]]) -> L
     
     return combined_tokens
 
-def compress(input_data, model, window_size=64, output_path=None, min=100, max=500) -> Tuple[bytes, int, int, List[Any]]:
+def compress(input_data, model, window_size=100, output_path=None, min=100, max=500) -> Tuple[bytes, int, int, List[Any]]:
     """
     Compress a string or text file.
     
@@ -65,13 +65,22 @@ def compress(input_data, model, window_size=64, output_path=None, min=100, max=5
 
     # Step 1: Chunk and tokenize
     chunks = file_splitter.chunk_file(input_data, min, max)
+
+    # for chunk in chunks:
+    #     print("Chunk:")
+    #     print(chunk)
+
     tokenized_chunks = Tokenize.tokenize_chunks(chunks, model, window_size)
-    
+
+
+    # for tokenized_chunk in tokenized_chunks:
+    #     print("Tokenized chunk:")
+    #     print(tokenized_chunk)
     # Combine all chunks into a single token list
     tokens = combine_tokenized_chunks(tokenized_chunks)
     
     # Step 2: Binary encoding
-    bin_data = Encoder.encode_tokens(tokens.copy())
+    bin_data = Encoder.encode_tokens(tokens.copy(), window_size)
     compressed_size = len(bin_data)
     
     # Save binary if path provided

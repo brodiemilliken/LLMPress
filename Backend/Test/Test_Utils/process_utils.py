@@ -60,7 +60,7 @@ def process_file(file_path, model, window_size, output_dir, verbose=False, debug
     if verbose:
         print("\nDecompressing file...")
     start_time = time.time()
-    decoded_text, decoded_tokens = decompress(compressed_path, model, window_size, decompressed_path)
+    decoded_text, decoded_tokens = decompress(compressed_path, model, decompressed_path)
     decompression_time = time.time() - start_time
     
     # Compare tokens

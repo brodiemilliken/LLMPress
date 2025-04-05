@@ -10,14 +10,20 @@ Double Byte Format:
     Used for encoding two adjacent rank bytes with ranks 0 to 2^3-1
     [0][1][3x Payload][3x Payload]
 
-Exlpicit Byte Format:
+Explicit Byte Format:
     Used for encoding an explicit token that requires an unknown number of bits
-    Start Byte: [1][0][6x Payload] (maximum token size: 2^6-1)
-    Middle/End Byte: [Stop Flag][7x Payload] (2 bytes maximum token size: 2^13-1, 3 bytes maximum token size: 2^20-1)
+    Start Byte: [1][0][6x Payload] 
+    Middle Byte: [0][7x Payload] 
+    End Byte: [1][0][6x Payload] 
+    Maximum token sizes:
+    - 1 byte format: 6 bits
+    - 2 byte format: 12 bits (6+6)
+    - 3 byte format: 19 bits (6+7+6)
 
 Continuous Zero Byte Format:
     Used for encoding a series of continuous zeroes
     [1][1][6x Payload] where the payload represents the number of continuous zeroes
+    Maximum continuous zeroes: 62 (to avoid 0xFF)
 
 Special Tokens:
     <BREAK> Token: Used to mark chunk boundaries
@@ -98,38 +104,76 @@ def handle_double_byte(token1: Tuple[str,int], token2: Tuple[str,int]) -> bytes:
     return bytes([0b01000000 | (rank1 << 3) | rank2])  # Encodes two adjacent ranks in a single byte
 
 
-def handle_explicit_bytes(token: Tuple[str,int]) -> bytes:
+def explicit_bytes_length(bytes_data: bytes, idx: int) -> int:
     """
-    Handles the explicit token case.
+    Determines the length of the explicit token starting at idx.
+    New rule: look at the second byte – if its MSB is 0 then it's a middle byte (3-byte format);
+    otherwise, it's a 2-byte token.
     
     Args:
-        token: Tuple[str,int]: The token to handle.
+        bytes_data (bytes): The byte sequence.
+        idx (int): The starting index.
         
     Returns:
-        bytes: The byte representation of the token.
+        int: The length of the explicit token, which can be 1 or more depending on the byte sequence.
     """
-    val = token[1]
-    bit_length = val.bit_length()
+    length = 1
+    if idx + 1 < len(bytes_data):
+        next = bytes_data[idx + 1]
+        while (next & 0b10000000) == 0b00000000 and length < 4:  # Ensure length does not exceed 4
+            length += 1
+            idx += 1
+            if idx + 1 < len(bytes_data):
+                next = bytes_data[idx + 1]
+            else:
+                break
+    return length
+
+
+def handle_explicit_bytes(bytes_data: bytes) -> Tuple[str, int]:
+    """
+    Decodes an explicit token.
     
-    if bit_length <= 7:
-        # For values under 7 bits, use an empty start byte and put all bits in end byte
-        start_byte = 0b10000000  # Start byte with [1][0] and empty payload
-        end_byte = 0b10000000 | val  # End byte with stop flag [1] and the value as payload
-        return bytes([start_byte, end_byte])
-    elif bit_length <= 13:
-        # For values with 7-13 bits, distribute the bits between two bytes
-        start_byte = 0b10000000 | (val >> 7)  # Start byte with [1][0] and 6-bit payload
-        end_byte = 0b10000000 | (val & 0b01111111)  # End byte with stop flag [1] and 7-bit payload
-        return bytes([start_byte, end_byte])
-    elif bit_length <= 20:
-        # For values with 14-20 bits, use three bytes
-        start_byte = 0b10000000 | (val >> 14)  # Start byte with most significant 6 bits
-        middle_byte = 0b00000000 | ((val >> 7) & 0b01111111)  # Middle byte with next 7 bits
-        end_byte = 0b10000000 | (val & 0b01111111)  # End byte with least significant 7 bits
-        return bytes([start_byte, middle_byte, end_byte])
-    
-    # Handle larger tokens
-    return bytes([0b10111111, 0b10111111])  # Placeholder for larger tokens
+    The new explicit format is:
+        - 1-byte token: [1][0][6-bit payload]
+        - 2-byte token: [1][0][6-bit payload] (start) followed by [1][0][6-bit payload] (stop)
+          → value = (start_payload << 6) | stop_payload
+        - 3-byte token: [1][0][6-bit payload] (start), [0][7-bit payload] (middle), [1][0][6-bit payload] (stop)
+          → value = (start_payload << 13) | (middle_payload << 6) | stop_payload
+          
+    Args:
+        bytes_data (bytes): The byte sequence representing the token.
+        
+    Returns:
+        Tuple[str, int]: A tuple with type 'e' and the decoded token value.
+    """
+    if len(bytes_data) > 4:
+        raise ValueError("Invalid explicit token length: must be 1, 2, 3, or 4 bytes.")
+    if len(bytes_data) == 1:
+        # Single byte explicit token
+        value = bytes_data[0] & 0b00111111
+        return ("e", value)
+    elif len(bytes_data) == 2:
+        # 2-byte explicit token
+        start_payload = bytes_data[0] & 0b00111111
+        stop_payload = bytes_data[1] & 0b00111111  # Stop byte expected to have [1][0] flag.
+        value = (start_payload << 6) | stop_payload
+        return ("e", value)
+    elif len(bytes_data) == 3:
+        # 3-byte explicit token
+        start_payload = bytes_data[0] & 0b00111111
+        middle_payload = bytes_data[1] & 0b01111111  # Middle byte always starts with 0.
+        stop_payload = bytes_data[2] & 0b00111111
+        value = (start_payload << 13) | (middle_payload << 6) | stop_payload
+        return ("e", value)
+    elif len(bytes_data) == 4:
+        # 4-byte explicit token
+        start_payload = bytes_data[0] & 0b00111111
+        middle_payload1 = bytes_data[1] & 0b01111111  # First middle byte always starts with 0.
+        middle_payload2 = bytes_data[2] & 0b01111111  # Second middle byte always starts with 0.
+        stop_payload = bytes_data[3] & 0b00111111
+        value = (start_payload << 20) | (middle_payload1 << 13) | (middle_payload2 << 6) | stop_payload
+        return ("e", value)
 
 
 def count_leading_zeros(tokens: list[Tuple[str,int]]) -> int:
@@ -161,9 +205,54 @@ def handle_continuous_zero_bytes(count: int) -> bytes:
     Returns:
         bytes: The byte representation of the continuous zeroes.
     """
-    if not (0 <= count <= 63):
-        raise ValueError("Count must be in the range 0-63.")
-    return bytes([0b11000000 | count])  # Encodes integers 0-63 (6 bits) in a single byte
+    if not (0 <= count <= 62):  # Maximum of 62 to avoid creating 0xFF
+        # Split into multiple continuous zero tokens
+        first_count = 62
+        remaining_count = count - 62
+        first_bytes = handle_continuous_zero_bytes(first_count)
+        remaining_bytes = handle_continuous_zero_bytes(remaining_count)
+        return first_bytes + remaining_bytes
+        
+    byte_value = 0b11000000 | count  # [11] + 6-bit payload
+    return bytes([byte_value])
+
+
+def encode_explicit_token(token: Tuple[str, int]) -> bytes:
+    """
+    Encodes an explicit token tuple into bytes using the new explicit format.
+    
+    Args:
+        token (Tuple[str,int]): A tuple such as ("e", value)
+        
+    Returns:
+        bytes: The explicit token encoded as bytes.
+        
+    Supports:
+      - 2-byte: 12 bits (value < 2^12)
+      - 3-byte: 19 bits (value < 2^19)
+      - 4-byte: 26 bits (value < 2^26)
+    """
+    val = token[1]
+    if val < (1 << 12):  # 2-byte token for values under 12 bits
+        return bytes([
+            0b10000000 | ((val >> 6) & 0b00111111),
+            0b10000000 | (val & 0b00111111)
+        ])
+    elif val < (1 << 19):  # 3-byte token
+        return bytes([
+            0b10000000 | ((val >> 13) & 0b00111111),
+            (val >> 6) & 0b01111111,  # middle byte with MSB=0
+            0b10000000 | (val & 0b00111111)
+        ])
+    elif val < (1 << 26):  # 4-byte token
+        return bytes([
+            0b10000000 | ((val >> 20) & 0b00111111),
+            (val >> 13) & 0b01111111,  # first middle byte with MSB=0
+            (val >> 6) & 0b01111111,   # second middle byte with MSB=0
+            0b10000000 | (val & 0b00111111)
+        ])
+    else:
+        raise ValueError("Explicit token value too large.")
 
 
 def encode_next_bytes(tokens: list[Tuple[str,int]]) -> bytes:
@@ -197,20 +286,31 @@ def encode_next_bytes(tokens: list[Tuple[str,int]]) -> bytes:
         return handle_rank_byte(token)
     else:
         token = tokens.pop(0)
-        return handle_explicit_bytes(token)
+        return encode_explicit_token(token)
 
 
-def encode_tokens(tokens: list[Tuple[str,int]]) -> bytes:
+def encode_tokens(tokens: list[Tuple[str,int]], window_size: int = 64) -> bytes:
     """
-    Encodes a list of tokens into bytes.
+    Encodes a list of tokens into bytes, including the window size as the first explicit token.
 
     Args:
         tokens (list[Tuple[str,int]]): The list of tokens to encode.
+        window_size (int): The window size to encode at the beginning of the byte stream.
 
     Returns:
-        bytes: The byte representation of the tokens.
+        bytes: The byte representation of the tokens, with window size at the beginning.
     """
     encoded_bytes = bytearray()
+    
+    # Encode the window size as an explicit token using the new function:
+    window_size_token = ("<WINDOW_SIZE>", window_size)
+    print("Encoded window size:", window_size)
+    encoded_bytes.extend(encode_explicit_token(window_size_token))
+    
+    # Then encode the rest of the tokens
     while tokens:
         encoded_bytes.extend(encode_next_bytes(tokens))
+        
     return bytes(encoded_bytes)
+
+
