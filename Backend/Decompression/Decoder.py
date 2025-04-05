@@ -244,7 +244,7 @@ def decode_bytes(data: bytes) -> Tuple[list[Tuple[str,int]], int]:
     
     # Extract the window size from the beginning of the data
     window_size, idx = extract_window_size(data)
-    print(f"Extracted window size: {window_size}")
+    #print(f"Extracted window size: {window_size}")
     # Continue decoding the rest of the tokens
     while idx < len(data):
         new_tokens, new_idx = handle_next_bytes(data, idx)

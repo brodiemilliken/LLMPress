@@ -1,10 +1,11 @@
 import os
 import sys
 import argparse
+import logging
 from tabulate import tabulate
 
-# Use environment-based imports
 
+from Backend.utils.logging_config import configure_logging
 from Backend.celery_client import CeleryClient
 from Backend.Compression.compressor import compress
 from Backend.Decompression.decompressor import decompress
@@ -44,8 +45,10 @@ def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_ch
             with open(file_path, "r", encoding="latin-1") as f:
                 original_text = f.read()
         
-        # Compress - pass the file path directly to compress function
-        print(f"Compressing {file_name}...")
+        # Print file being compressed (simple console output)
+        print(f"Compressing: {file_name}")
+        
+        # Compress - no redundant logging
         start_time = time.time()
         bin_data, _, compressed_size, encoded_tokens = compress(
             file_path, client, window_size, None, min_chunk, max_chunk
@@ -56,8 +59,10 @@ def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_ch
         temp_dir = tempfile.mkdtemp()
         decompressed_temp_path = os.path.join(temp_dir, "decompressed.txt")
         
-        # Decompress - note we're only passing three arguments now
-        print(f"Decompressing {file_name}...")
+        # Print file being decompressed (simple console output)
+        print(f"Decompressing: {file_name}")
+        
+        # Decompress - no redundant logging
         start_time = time.time()
         decoded_text, decoded_tokens = decompress(bin_data, client, decompressed_temp_path)
         decompression_time = time.time() - start_time
@@ -67,43 +72,15 @@ def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_ch
             decoded_text = f.read()
         
         # Check if content is identical using file-based comparison
-        # This handles line ending differences and other subtle issues
         original_temp_path = os.path.join(temp_dir, "original.txt")
         with open(original_temp_path, "w", encoding="utf-8") as f:
             f.write(original_text)
         
         # Compare the files
         are_identical = compare_files(original_temp_path, decompressed_temp_path)
-        diff = "" if are_identical else "Files differ"
-
-        # Print differences if not identical
-        if not are_identical and debug:
-            print("\nDifferences found between original and decompressed files:")
-            print("Content differs - see debug output for details")
         
         # Calculate compression ratio
         compression_ratio = original_size / compressed_size if compressed_size > 0 else 0
-        
-        # Create output if debug is enabled
-        if debug:
-            # Create output directories
-            output_dir = "Output/Debug"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Save decompressed text
-            decompressed_path = os.path.join(output_dir, f"decompressed_{file_name}")
-            with open(decompressed_path, "w", encoding="utf-8") as f:
-                f.write(decoded_text)
-                
-            # Save original text for comparison
-            original_output_path = os.path.join(output_dir, f"original_{file_name}")
-            with open(original_output_path, "w", encoding="utf-8") as f:
-                f.write(original_text)
-                
-            # Save compressed data
-            compressed_path = os.path.join(output_dir, f"{file_name}.bin")
-            with open(compressed_path, "wb") as f:
-                f.write(bin_data)
         
         # Clean up temp files
         try:
@@ -120,13 +97,10 @@ def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_ch
             "compression_ratio": compression_ratio,
             "identical": are_identical,
             "compression_time": compression_time,
-            "decompression_time": decompression_time,
-            "diff": diff if not are_identical else ""
+            "decompression_time": decompression_time
         }
     except Exception as e:
-        print(f"Error processing {file_name}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logging.error(f"Error processing {file_name}: {str(e)}")
         
         return {
             "file_name": file_name,
@@ -149,7 +123,7 @@ def process_directory(directory_path, client, window_size, min_chunk=100, max_ch
     print(f"Found {len(file_paths)} files to process in {directory_path}")
     
     for i, file_path in enumerate(file_paths, 1):
-        print(f"\nProcessing file {i}/{len(file_paths)}: {file_path}")
+        print(f"\nFile {i}/{len(file_paths)}: {os.path.basename(file_path)}")
         result = process_file_in_memory(file_path, client, window_size, min_chunk, max_chunk, debug)
         results.append(result)
         
@@ -157,42 +131,47 @@ def process_directory(directory_path, client, window_size, min_chunk=100, max_ch
 
 def display_results(results):
     """
-    Display results in a nice table format.
+    Display results in a table format using tabulate, with summary as the last row.
     """
     if not results:
         print("No files were processed.")
         return
-        
-    table_data = []
+    
+    # Calculate overall statistics
+    total_original = sum(r["original_size"] for r in results)
+    total_compressed = sum(r["compressed_size"] for r in results)
+    avg_ratio = total_original / total_compressed if total_compressed > 0 else 0
+    total_savings = (1 - total_compressed/total_original) * 100 if total_original > 0 else 0
+    total_identical = sum(1 for r in results if r["identical"])
+    
+    # Create detailed results table
+    details_headers = ["File", "Original Size", "Compressed Size", "Ratio", "Savings", "Identical"]
+    details_rows = []
+    
     for r in results:
-        row = [
+        savings = (1 - r["compressed_size"]/r["original_size"]) * 100 if r["original_size"] > 0 else 0
+        details_rows.append([
             r["file_name"],
             f"{r['original_size']:,} bytes",
             f"{r['compressed_size']:,} bytes",
             f"{r['compression_ratio']:.2f}x",
-            f"{r['compression_time']:.2f}s",
-            f"{r['decompression_time']:.2f}s",
-            "Identical" if r["identical"] else "Different"
-        ]
-        table_data.append(row)
+            f"{savings:.2f}%",
+            "Yes" if r["identical"] else "No"
+        ])
     
-    headers = ["File", "Original Size", "Compressed Size", "Ratio", "Comp Time", "Decomp Time", "Status"]
+    # Add the summary row
+    details_rows.append([
+        "SUMMARY",
+        f"{total_original:,} bytes",
+        f"{total_compressed:,} bytes",
+        f"{avg_ratio:.2f}x",
+        f"{total_savings:.2f}%",
+        f"{total_identical}/{len(results)}"
+    ])
     
-    print("\n" + tabulate(table_data, headers=headers, tablefmt="grid"))
-    
-    # Calculate and display overall statistics
-    total_original = sum(r["original_size"] for r in results)
-    total_compressed = sum(r["compressed_size"] for r in results)
-    avg_ratio = total_original / total_compressed if total_compressed > 0 else 0
-    total_identical = sum(1 for r in results if r["identical"])
-    
-    print(f"\n=== Overall Statistics ===")
-    print(f"Total files processed: {len(results)}")
-    print(f"Files with identical content: {total_identical}/{len(results)}")
-    print(f"Total original size: {total_original:,} bytes")
-    print(f"Total compressed size: {total_compressed:,} bytes")
-    print(f"Average compression ratio: {avg_ratio:.2f}x")
-    print(f"Space savings: {(1 - total_compressed/total_original) * 100:.2f}%")
+    # Print the table with both individual files and summary
+    print("\n=== Compression Results ===")
+    print(tabulate(details_rows, headers=details_headers, tablefmt="grid"))
 
 def main():
     # Parse command line arguments
@@ -203,8 +182,13 @@ def main():
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save files")
     parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
     parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
+    parser.add_argument("--log-level", choices=["quiet", "normal", "verbose", "debug"], 
+                        default="quiet", help="Set logging verbosity (default: quiet)")
     
     args = parser.parse_args()
+    
+    # Configure logging with single parameter
+    configure_logging(args.log_level)
     
     # Validate input directory
     if not os.path.isdir(args.input):

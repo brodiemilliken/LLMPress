@@ -44,7 +44,7 @@ def get_model():
     return _model
 
 # Define tasks
-@celery_app.task(name="tokenize_text", soft_time_limit=60)
+@celery_app.task(name="ai.tasks.tokenize_text", soft_time_limit=60)
 def tokenize_text(text: str, window_size: int = 64) -> List[Tuple[str, int]]:
     """
     Task to tokenize text
@@ -57,7 +57,7 @@ def tokenize_text(text: str, window_size: int = 64) -> List[Tuple[str, int]]:
     model = get_model()
     return encode_text(text, model, window_size)
 
-@celery_app.task(name="detokenize_tokens", soft_time_limit=60)
+@celery_app.task(name="ai.tasks.detokenize_tokens", soft_time_limit=60)
 def detokenize_tokens(tokens: List[List[Any]], window_size: int = 64) -> str:
     """
     Task to detokenize tokens
@@ -74,5 +74,13 @@ def detokenize_tokens(tokens: List[List[Any]], window_size: int = 64) -> str:
 @celery_app.on_after_configure.connect
 def setup_worker(sender, **kwargs):
     print("Celery worker starting up...")
-    # Pre-load the model to avoid cold start on first request
-    get_model()
+    try:
+        # Pre-load the model to avoid cold start on first request
+        get_model()
+        print("Model loaded successfully")
+    except ImportError as e:
+        print(f"Warning: Could not import model dependencies: {e}")
+        print("Tasks will attempt to load the model when needed")
+    except Exception as e:
+        print(f"Warning: Error initializing model: {e}")
+        print("Tasks will attempt to load the model when needed")

@@ -2,6 +2,10 @@ import os
 import sys
 import argparse
 import hashlib
+import logging
+
+# Import the simplified logging config
+from utils.logging_config import configure_logging
 
 # Import using proper package structure
 from Backend.Compression.file_splitter import chunk_file, split_text
@@ -194,8 +198,13 @@ def main():
     parser.add_argument("--window", "-w", type=int, default=64, help="Window size for tokenization")
     parser.add_argument("--tokenize", "-t", action="store_true", help="Also perform tokenization after chunking")
     parser.add_argument("--output", "-o", help="Output the reconstructed text to a file for comparison")
+    parser.add_argument("--log-level", choices=["quiet", "normal", "verbose", "debug"], 
+                        default="quiet", help="Set logging verbosity (default: quiet)")
     
     args = parser.parse_args()
+    
+    # Configure logging with single parameter
+    configure_logging(args.log_level)
     
     # Test chunking
     chunks = test_file(args.input, args.min, args.max)
@@ -205,7 +214,7 @@ def main():
         reconstructed = ''.join(chunks)
         with open(args.output, 'w', encoding='utf-8') as f:
             f.write(reconstructed)
-        print(f"\nReconstructed text saved to {args.output}")
+        logging.info(f"Reconstructed text saved to {args.output}")
 
     # Test tokenization if requested
     if args.tokenize and chunks:

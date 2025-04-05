@@ -309,7 +309,7 @@ def encode_tokens(tokens: list[Tuple[str,int]], window_size: int = 64) -> bytes:
     
     # Encode the window size as an explicit token using the new function:
     window_size_token = ("<WINDOW_SIZE>", window_size)
-    print("Encoded window size:", window_size)
+    #print("Encoded window size:", window_size)
     encoded_bytes.extend(encode_explicit_token(window_size_token))
     
     # Then encode the rest of the tokens

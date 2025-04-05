@@ -1,62 +1,107 @@
 # LLMPress
 
-LLMPress is a tool for compressing files and folders using advanced language models. It supports single-file and folder-based compression workflows, and can scale to multiple workers for efficient processing.
+LLMPress is a tool for compressing files and folders using advanced language models. It leverages predictive capabilities of language models to achieve better compression ratios than traditional algorithms for text-based content.
 
 ## Features
-- Compress a single file or an entire folder of files.
-- Specify context window size (`--k`) and model (`--model`) for compression.
-- Debug mode to save token information for analysis.
-- Scalable architecture with support for multiple workers using Docker Compose.
+- Compress a single file or an entire folder of files
+- Configurable chunking parameters for optimal compression
+- Adjustable context window size for language model predictions
+- Multiple logging levels for debugging and information
+- Distributed processing with Celery for improved performance
+- GPU-accelerated compression with CUDA support
+
+## Installation
+
+### Using Docker (Recommended)
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/LLMPress.git
+   cd LLMPress
+   ```
+
+2. Start the services using Docker Compose:
+   ```bash
+   cd Deployment
+   ./llmpress-start.bat    # Windows
+   # OR
+   ./start-llmpress.ps1    # PowerShell with GPU support
+   ```
+
+### Manual Installation
+1. Install dependencies:
+   ```bash
+   pip install -r Backend/requirements.txt
+   pip install -r AI/requirements.txt
+   ```
+
+2. Start the Redis server:
+   ```bash
+   docker run -d -p 6379:6379 redis
+   ```
+
+3. Start a Celery worker:
+   ```bash
+   cd AI
+   celery -A tasks worker --loglevel=info
+   ```
 
 ## Usage
 
 ### Single File Compression
-Run the following command to compress a single file:
 ```bash
-python compress.py --input <path_to_file> --output <output_directory> --k <context_window_size> --model <model_name> --debug
+docker exec -it deployment-backend-1 python Test/file_test.py \
+  -i Test/small_files/sample.txt \
+  -w 100 -min 500 -max 1000 \
+  --log-level verbose
 ```
-- `--input` (`-i`): Path to the file to compress (required).
-- `--output` (`-o`): Output directory for results (default: `Output`).
-- `--k`: Context window size (default: `64`).
-- `--model`: Model name to use (default: `gpt2`).
-- `--debug` (`-d`): Enable debug mode to save token information.
 
-### Folder Compression
-Run the following command to compress all files in a folder:
+Parameters:
+- `-i, --input`: Path to the file to compress (required)
+- `-o, --output`: Output directory (default: `Output`)
+- `-w, --window-size`: Context window size (default: 64)
+- `-min, --min-chunk`: Minimum chunk size in bytes (default: 100)
+- `-max, --max-chunk`: Maximum chunk size in bytes (default: 500)
+- `--log-level`: Logging verbosity (choices: quiet, normal, verbose, debug)
+
+### Batch Compression
 ```bash
-python compress_folder.py --input <input_directory> --output <output_directory> --k <context_window_size> --model <model_name> --debug
+docker exec -it deployment-backend-1 python Test/batch_test.py \
+  -i Test/small_files \
+  -w 100 -min 500 -max 1000 \
+  --log-level normal
 ```
-- `--input` (`-i`): Input directory with files to compress (required).
-- `--output` (`-o`): Output directory for results (default: `Output`).
-- `--k`: Context window size (default: `64`).
-- `--model`: Model name to use (default: `gpt2`).
-- `--debug` (`-d`): Enable debug mode to save token information.
 
-### Scaling with Multiple Workers or Multiple Backends
-LLMPress supports scaling to multiple workers for parallel processing. Use Docker Compose to spin up multiple workers:
+### Advanced Chunking Test
 ```bash
-docker compose --profile gpu up --scale backend=2 --scale llmpress-worker=1
+docker exec -it deployment-backend-1 python Test/chunk_test.py \
+  -i Test/small_files/sample.txt \
+  -m 100 -M 500 \
+  --log-level debug
 ```
-- `--scale llmpress-worker=3`: Spins up 3 workers for parallel processing. Adjust the number as needed.
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-repo/LLMPress.git
-   cd LLMPress
-   ```
-2. Build the Docker image (this will install all dependencies):
-   ```bash
-   docker compose build
-   ```
+## Logging Levels
 
-### Notes
-- Ensure you have Docker and Docker Compose installed for scaling workers.
-- GPU support requires CUDA-compatible hardware and drivers.
-- If you are developing locally without Docker, you can install dependencies manually:
-   ```bash
-   pip install -r requirements.txt
-   ```
+LLMPress supports different logging levels to control the verbosity of output:
+
+| Level | Description |
+|-------|-------------|
+| `quiet` | Show only errors |
+| `normal` | Show warnings and errors |
+| `verbose` | Show info, warnings, and errors |
+| `debug` | Show all messages including debug information |
+
+Example:
+```bash
+docker exec -it deployment-backend-1 python Test/file_test.py -i Test/small_files/sample.txt --log-level verbose
+```
+
+## Scaling with Multiple Workers
+
+LLMPress supports horizontal scaling with multiple worker instances:
+
+```bash
+docker compose --profile gpu up --scale llmpress-worker=3
+```
 
 ## License
 This project is licensed under the MIT License.

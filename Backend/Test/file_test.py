@@ -1,11 +1,16 @@
 import os
 import sys
 import argparse
+import logging
 from tabulate import tabulate
 
-# Fix the import path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from celery_client import CeleryClient  # Correct import path
+# Add module path if needed
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Import the simplified logging config
+from utils.logging_config import configure_logging
+
+from Backend.celery_client import CeleryClient  # Correct import path
 from test_utils import process_file
 
 def display_results(result, output_dir="Output", debug=False):
@@ -54,8 +59,13 @@ def main():
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
     parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
     parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
+    parser.add_argument("--log-level", choices=["quiet", "normal", "verbose", "debug"], 
+                        default="quiet", help="Set logging verbosity (default: quiet)")
     
     args = parser.parse_args()
+    
+    # Configure logging with single parameter
+    configure_logging(args.log_level)
     
     # Create output directory
     os.makedirs(args.output, exist_ok=True)
@@ -65,11 +75,11 @@ def main():
     
     # Validate file path
     if not os.path.isfile(args.input):
-        print(f"Error: File '{args.input}' does not exist or is not a file")
+        logging.error(f"Error: File '{args.input}' does not exist or is not a file")
         return
         
     # Process file
-    print(f"=== Processing File: {args.input} ===")
+    logging.info(f"=== Processing File: {args.input} ===")
     result = process_file(args.input, api, args.window_size, args.output, 
                          verbose=True, debug=args.debug, 
                          min_chunk=args.min_chunk, max_chunk=args.max_chunk)

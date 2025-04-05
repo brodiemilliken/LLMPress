@@ -1,5 +1,11 @@
 import os
 import re
+import logging
+from ..exceptions import FileOperationError, ChunkingError
+
+# Set up logging
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('LLMPress.FileSplitter')
 
 # Common semantic delimiters based on file type
 DELIMITER_PATTERNS = {
@@ -73,96 +79,109 @@ def split_text(text, min_chunk_size=500, max_chunk_size=2000, file_type=None):
         
     Returns:
         list: List of text chunks with delimiters preserved
+        
+    Raises:
+        ChunkingError: If there's an error during text chunking
     """
-    # Use a simpler approach: first try to split by paragraphs
-    chunks = []
-    current_chunk = ""
-    
-    # First, split by paragraph or reasonable delimiters
-    simple_pattern = r'\n\n|\n[-=*]{3,}\n'
-    
-    # Start with a simple split by paragraphs
-    segments = re.split(f'({simple_pattern})', text)
-    
-    for i in range(0, len(segments), 2):
-        segment = segments[i]
-        delimiter = segments[i+1] if i+1 < len(segments) else ""
-        
-        proposed_addition = segment + delimiter
-        
-        # If adding this would exceed max size and we already have content
-        if len(current_chunk) + len(proposed_addition) > max_chunk_size and len(current_chunk) >= min_chunk_size:
-            chunks.append(current_chunk)
-            current_chunk = proposed_addition
-        else:
-            current_chunk += proposed_addition
-            
-            # If we've accumulated enough and hit a natural break
-            if len(current_chunk) >= min_chunk_size and delimiter:
-                chunks.append(current_chunk)
-                current_chunk = ""
-    
-    # Handle any leftover content
-    if current_chunk:
-        # If the current chunk is too small and we have previous chunks, 
-        # merge with the last chunk if possible
-        if len(current_chunk) < min_chunk_size and chunks:
-            last_chunk = chunks.pop()
-            merged = last_chunk + current_chunk
-            
-            # Only merge if it doesn't exceed max_chunk_size too much
-            if len(merged) <= max_chunk_size * 1.5:
-                chunks.append(merged)
-            else:
-                chunks.append(last_chunk)
-                chunks.append(current_chunk)
-        else:
-            chunks.append(current_chunk)
-    
-    # Check if we need to further split large chunks
-    i = 0
-    while i < len(chunks):
-        if len(chunks[i]) > max_chunk_size * 1.5:
-            # Use a more aggressive splitting approach for oversized chunks
-            large_chunk = chunks[i]
-            
-            # Try to find line breaks or sentences to split on
-            simple_breaks = re.split(r'(\n|(?<=[.!?])\s+)', large_chunk)
-            
-            new_chunk = ""
-            sub_chunks = []
-            
-            for j in range(0, len(simple_breaks), 2):
-                text_part = simple_breaks[j]
-                break_part = simple_breaks[j+1] if j+1 < len(simple_breaks) else ""
-                
-                if len(new_chunk) + len(text_part) + len(break_part) > max_chunk_size and len(new_chunk) >= min_chunk_size:
-                    sub_chunks.append(new_chunk)
-                    new_chunk = text_part + break_part
-                else:
-                    new_chunk += text_part + break_part
-            
-            if new_chunk:
-                sub_chunks.append(new_chunk)
-            
-            # Replace the large chunk with the sub-chunks
-            chunks[i:i+1] = sub_chunks
-            i += len(sub_chunks)
-        else:
-            i += 1
-    
-    # Verify integrity
-    reconstructed = ''.join(chunks)
-    if len(reconstructed) != len(text):
-        # If we've lost data, fall back to a simpler chunking method
-        # that just divides the text into equal parts
+    try:
+        # Use a simpler approach: first try to split by paragraphs
         chunks = []
-        chunk_size = max_chunk_size
+        current_chunk = ""
         
-        for i in range(0, len(text), chunk_size):
-            chunks.append(text[i:min(i + chunk_size, len(text))])
-    
-    return chunks
+        # First, split by paragraph or reasonable delimiters
+        simple_pattern = r'\n\n|\n[-=*]{3,}\n'
+        
+        # Start with a simple split by paragraphs
+        segments = re.split(f'({simple_pattern})', text)
+        
+        for i in range(0, len(segments), 2):
+            segment = segments[i]
+            delimiter = segments[i+1] if i+1 < len(segments) else ""
+            
+            proposed_addition = segment + delimiter
+            
+            # If adding this would exceed max size and we already have content
+            if len(current_chunk) + len(proposed_addition) > max_chunk_size and len(current_chunk) >= min_chunk_size:
+                chunks.append(current_chunk)
+                current_chunk = proposed_addition
+            else:
+                current_chunk += proposed_addition
+                
+                # If we've accumulated enough and hit a natural break
+                if len(current_chunk) >= min_chunk_size and delimiter:
+                    chunks.append(current_chunk)
+                    current_chunk = ""
+        
+        # Handle any leftover content
+        if current_chunk:
+            # If the current chunk is too small and we have previous chunks, 
+            # merge with the last chunk if possible
+            if len(current_chunk) < min_chunk_size and chunks:
+                last_chunk = chunks.pop()
+                merged = last_chunk + current_chunk
+                
+                # Only merge if it doesn't exceed max_chunk_size too much
+                if len(merged) <= max_chunk_size * 1.5:
+                    chunks.append(merged)
+                else:
+                    chunks.append(last_chunk)
+                    chunks.append(current_chunk)
+            else:
+                chunks.append(current_chunk)
+        
+        # Check if we need to further split large chunks
+        i = 0
+        while i < len(chunks):
+            if len(chunks[i]) > max_chunk_size * 1.5:
+                # Use a more aggressive splitting approach for oversized chunks
+                large_chunk = chunks[i]
+                
+                # Try to find line breaks or sentences to split on
+                simple_breaks = re.split(r'(\n|(?<=[.!?])\s+)', large_chunk)
+                
+                new_chunk = ""
+                sub_chunks = []
+                
+                for j in range(0, len(simple_breaks), 2):
+                    text_part = simple_breaks[j]
+                    break_part = simple_breaks[j+1] if j+1 < len(simple_breaks) else ""
+                    
+                    if len(new_chunk) + len(text_part) + len(break_part) > max_chunk_size and len(new_chunk) >= min_chunk_size:
+                        sub_chunks.append(new_chunk)
+                        new_chunk = text_part + break_part
+                    else:
+                        new_chunk += text_part + break_part
+                
+                if new_chunk:
+                    sub_chunks.append(new_chunk)
+                
+                # Replace the large chunk with the sub-chunks
+                chunks[i:i+1] = sub_chunks
+                i += len(sub_chunks)
+            else:
+                i += 1
+        
+        # Verify integrity
+        reconstructed = ''.join(chunks)
+        if len(reconstructed) != len(text):
+            logger.warning(f"Chunking integrity issue: Original {len(text)} bytes, Reconstructed {len(reconstructed)} bytes")
+            # If we've lost data, fall back to a simpler chunking method
+            # that just divides the text into equal parts
+            chunks = []
+            chunk_size = max_chunk_size
+            
+            for i in range(0, len(text), chunk_size):
+                chunks.append(text[i:min(i + chunk_size, len(text))])
+                
+            logger.info(f"Fallback chunking: Created {len(chunks)} equal-sized chunks")
+        else:
+            logger.info(f"Successfully chunked text into {len(chunks)} chunks")
+        
+        return chunks
+        
+    except Exception as e:
+        logger.error(f"Error during text chunking: {str(e)}", exc_info=True)
+        raise ChunkingError(f"Failed to chunk text: {str(e)}")
 
 def detect_file_type(file_path):
     """
@@ -204,14 +223,52 @@ def chunk_file(file_path, min_chunk_size=500, max_chunk_size=2000):
         
     Returns:
         list: List of text chunks
+        
+    Raises:
+        FileOperationError: If there's an error reading the file
+        ChunkingError: If there's an error during text chunking
     """
+    logger.info(f"Chunking file: {file_path}")
+    
+    if not os.path.exists(file_path):
+        error_msg = f"File not found: {file_path}"
+        logger.error(error_msg)
+        raise FileOperationError(error_msg)
+        
+    if not os.path.isfile(file_path):
+        error_msg = f"Not a file: {file_path}"
+        logger.error(error_msg)
+        raise FileOperationError(error_msg)
+    
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
     except UnicodeDecodeError:
-        # Fall back to latin-1 if utf-8 fails
-        with open(file_path, 'r', encoding='latin-1') as f:
-            content = f.read()
+        logger.warning(f"UTF-8 decoding failed for {file_path}, trying latin-1")
+        try:
+            # Fall back to latin-1 if utf-8 fails
+            with open(file_path, 'r', encoding='latin-1') as f:
+                content = f.read()
+        except Exception as e:
+            error_msg = f"Failed to read file {file_path}: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise FileOperationError(error_msg)
+    except Exception as e:
+        error_msg = f"Failed to read file {file_path}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise FileOperationError(error_msg)
     
     file_type = detect_file_type(file_path)
-    return split_text(content, min_chunk_size, max_chunk_size, file_type)
+    logger.info(f"Detected file type: {file_type} for {file_path}")
+    
+    try:
+        chunks = split_text(content, min_chunk_size, max_chunk_size, file_type)
+        logger.info(f"Successfully chunked {file_path} into {len(chunks)} chunks")
+        return chunks
+    except ChunkingError:
+        # Re-raise the original ChunkingError
+        raise
+    except Exception as e:
+        error_msg = f"Failed to chunk file {file_path}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        raise ChunkingError(error_msg)
