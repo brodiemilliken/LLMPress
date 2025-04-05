@@ -1,18 +1,18 @@
 import os
+import sys
 import argparse
 from tabulate import tabulate
-from Test_Utils import process_file, initialize_model
-from Test_Utils.file_utils import create_output_dirs
+
+# Fix the import path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from celery_client import CeleryClient
+from Compression.Compress import compress
+from Decompression.Decompress import decompress
+from Test_Utils.file_utils import compare_files
 
 def get_files_in_directory(directory_path):
     """
     Get all non-hidden files in a directory.
-    
-    Args:
-        directory_path (str): Path to the directory
-        
-    Returns:
-        list: List of file paths
     """
     file_paths = []
     for file in os.listdir(directory_path):
@@ -23,19 +23,125 @@ def get_files_in_directory(directory_path):
                 file_paths.append(full_path)
     return file_paths
 
-def process_directory(directory_path, model, k, output_dir="Output", debug=False):
+def process_file_in_memory(file_path, client, window_size, min_chunk=100, max_chunk=500, debug=False):
+    """
+    Process a single file with compression and decompression without writing to disk.
+    """
+    import time
+    import tempfile
+    
+    # Get file name without directory
+    file_name = os.path.basename(file_path)
+    original_size = os.path.getsize(file_path)
+    
+    try:
+        # First read the file content
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                original_text = f.read()
+        except UnicodeDecodeError:
+            # Try with alternative encoding if utf-8 fails
+            with open(file_path, "r", encoding="latin-1") as f:
+                original_text = f.read()
+        
+        # Compress - pass the file path directly to compress function
+        print(f"Compressing {file_name}...")
+        start_time = time.time()
+        bin_data, _, compressed_size, encoded_tokens = compress(
+            file_path, client, window_size, None, min_chunk, max_chunk
+        )
+        compression_time = time.time() - start_time
+        
+        # Create temp directory for decompress output
+        temp_dir = tempfile.mkdtemp()
+        decompressed_temp_path = os.path.join(temp_dir, "decompressed.txt")
+        
+        # Decompress - note we're only passing three arguments now
+        print(f"Decompressing {file_name}...")
+        start_time = time.time()
+        decoded_text, decoded_tokens = decompress(bin_data, client, decompressed_temp_path)
+        decompression_time = time.time() - start_time
+        
+        # Read the decompressed content from the file
+        with open(decompressed_temp_path, "r", encoding="utf-8", errors="replace") as f:
+            decoded_text = f.read()
+        
+        # Check if content is identical using file-based comparison
+        # This handles line ending differences and other subtle issues
+        original_temp_path = os.path.join(temp_dir, "original.txt")
+        with open(original_temp_path, "w", encoding="utf-8") as f:
+            f.write(original_text)
+        
+        # Compare the files
+        are_identical = compare_files(original_temp_path, decompressed_temp_path)
+        diff = "" if are_identical else "Files differ"
+
+        # Print differences if not identical
+        if not are_identical and debug:
+            print("\nDifferences found between original and decompressed files:")
+            print("Content differs - see debug output for details")
+        
+        # Calculate compression ratio
+        compression_ratio = original_size / compressed_size if compressed_size > 0 else 0
+        
+        # Create output if debug is enabled
+        if debug:
+            # Create output directories
+            output_dir = "Output/Debug"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Save decompressed text
+            decompressed_path = os.path.join(output_dir, f"decompressed_{file_name}")
+            with open(decompressed_path, "w", encoding="utf-8") as f:
+                f.write(decoded_text)
+                
+            # Save original text for comparison
+            original_output_path = os.path.join(output_dir, f"original_{file_name}")
+            with open(original_output_path, "w", encoding="utf-8") as f:
+                f.write(original_text)
+                
+            # Save compressed data
+            compressed_path = os.path.join(output_dir, f"{file_name}.bin")
+            with open(compressed_path, "wb") as f:
+                f.write(bin_data)
+        
+        # Clean up temp files
+        try:
+            os.remove(original_temp_path)
+            os.remove(decompressed_temp_path)
+            os.rmdir(temp_dir)
+        except:
+            pass
+        
+        return {
+            "file_name": file_name,
+            "original_size": original_size,
+            "compressed_size": compressed_size,
+            "compression_ratio": compression_ratio,
+            "identical": are_identical,
+            "compression_time": compression_time,
+            "decompression_time": decompression_time,
+            "diff": diff if not are_identical else ""
+        }
+    except Exception as e:
+        print(f"Error processing {file_name}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "file_name": file_name,
+            "original_size": original_size,
+            "compressed_size": 0,
+            "compression_ratio": 0,
+            "identical": False,
+            "compression_time": 0,
+            "decompression_time": 0,
+            "error": str(e)
+        }
+
+def process_directory(directory_path, client, window_size, min_chunk=100, max_chunk=500, debug=False):
     """
     Process all files in a directory.
-    
-    Args:
-        directory_path (str): Path to the directory with files to process
-        model: The language model
-        k (int): Context window size
-        output_dir (str): Directory to store output files
-        debug (bool): Whether to save debug information
-        
-    Returns:
-        list: List of dictionaries with metrics for each file
     """
     file_paths = get_files_in_directory(directory_path)
     results = []
@@ -44,19 +150,14 @@ def process_directory(directory_path, model, k, output_dir="Output", debug=False
     
     for i, file_path in enumerate(file_paths, 1):
         print(f"\nProcessing file {i}/{len(file_paths)}: {file_path}")
-        result = process_file(file_path, model, k, output_dir, verbose=True, debug=debug)
+        result = process_file_in_memory(file_path, client, window_size, min_chunk, max_chunk, debug)
         results.append(result)
         
     return results
 
-def display_results(results, output_dir="Output", debug=False):
+def display_results(results):
     """
     Display results in a nice table format.
-    
-    Args:
-        results (list): List of result dictionaries
-        output_dir (str): Directory to save results file
-        debug (bool): Whether debug mode is enabled
     """
     if not results:
         print("No files were processed.")
@@ -73,18 +174,9 @@ def display_results(results, output_dir="Output", debug=False):
             f"{r['decompression_time']:.2f}s",
             "Identical" if r["identical"] else "Different"
         ]
-        
-        # Add token comparison if debug mode is on
-        if debug and "tokens_identical" in r:
-            row.append("Yes" if r["tokens_identical"] else "No")
-            
         table_data.append(row)
     
     headers = ["File", "Original Size", "Compressed Size", "Ratio", "Comp Time", "Decomp Time", "Status"]
-    
-    # Add token comparison header if debug mode is on
-    if debug and results and "tokens_identical" in results[0]:
-        headers.append("Tokens Match")
     
     print("\n" + tabulate(table_data, headers=headers, tablefmt="grid"))
     
@@ -101,20 +193,16 @@ def display_results(results, output_dir="Output", debug=False):
     print(f"Total compressed size: {total_compressed:,} bytes")
     print(f"Average compression ratio: {avg_ratio:.2f}x")
     print(f"Space savings: {(1 - total_compressed/total_original) * 100:.2f}%")
-    
-    # Display token match stats if debug mode is on
-    if debug and results and "tokens_identical" in results[0]:
-        total_tokens_identical = sum(1 for r in results if r.get("tokens_identical", False))
-        print(f"Files with identical tokens: {total_tokens_identical}/{len(results)}")
 
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Test LLMPress compression on a folder of files")
     parser.add_argument("--input", "-i", required=True, help="Input directory with files to compress")
-    parser.add_argument("--output", "-o", default="Output", help="Output directory for results")
-    parser.add_argument("--k", type=int, default=64, help="Context window size (default: 64)")
-    parser.add_argument("--model", default="gpt2", help="Model name to use (default: gpt2)")
-    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
+    parser.add_argument("--window-size", "-w", type=int, default=64, 
+                        help="Size of the sliding context window (default: 64)")
+    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save files")
+    parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
+    parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
     
     args = parser.parse_args()
     
@@ -122,19 +210,17 @@ def main():
     if not os.path.isdir(args.input):
         print(f"Error: Input directory '{args.input}' does not exist or is not a directory")
         return
-        
-    # Create output directory
-    os.makedirs(args.output, exist_ok=True)
     
-    # Create model (default is now Celery)
-    model = initialize_model(args.model)
+    # Create client
+    client = CeleryClient()
     
     # Process directory
     print(f"=== Processing Directory: {args.input} ===")
-    results = process_directory(args.input, model, args.k, args.output, debug=args.debug)
+    results = process_directory(args.input, client, args.window_size, 
+                               args.min_chunk, args.max_chunk, args.debug)
     
     # Display results
-    display_results(results, args.output, debug=args.debug)
+    display_results(results)
 
 
 if __name__ == "__main__":

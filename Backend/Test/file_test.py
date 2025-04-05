@@ -5,7 +5,8 @@ from tabulate import tabulate
 
 # Fix the import path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from Test_Utils import process_file, initialize_model
+from celery_client import CeleryClient  # Correct import path
+from Test_Utils import process_file
 
 def display_results(result, output_dir="Output", debug=False):
     """
@@ -47,9 +48,12 @@ def main():
     parser = argparse.ArgumentParser(description="Test LLMPress compression on a single file")
     parser.add_argument("--input", "-i", required=True, help="Path to the file to compress")
     parser.add_argument("--output", "-o", default="Output", help="Output directory for results")
-    parser.add_argument("--k", type=int, default=64, help="Context window size (default: 64)")
+    parser.add_argument("--window-size", "-w", type=int, default=64, 
+                        help="Size of the sliding context window (default: 64)")
     parser.add_argument("--model", default="gpt2", help="Model name to use (default: gpt2)")
     parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to save token information")
+    parser.add_argument("--min-chunk", "-min", type=int, default=100, help="Minimum chunk size in bytes (default: 100)")
+    parser.add_argument("--max-chunk", "-max", type=int, default=500, help="Maximum chunk size in bytes (default: 500)")
     
     args = parser.parse_args()
     
@@ -57,7 +61,7 @@ def main():
     os.makedirs(args.output, exist_ok=True)
     
     # Create model (default is now Celery)
-    model = initialize_model(args.model)
+    api = CeleryClient()
     
     # Validate file path
     if not os.path.isfile(args.input):
@@ -66,7 +70,9 @@ def main():
         
     # Process file
     print(f"=== Processing File: {args.input} ===")
-    result = process_file(args.input, model, args.k, args.output, verbose=True, debug=args.debug)
+    result = process_file(args.input, api, args.window_size, args.output, 
+                         verbose=True, debug=args.debug, 
+                         min_chunk=args.min_chunk, max_chunk=args.max_chunk)
     
     # Display results
     display_results(result, args.output, debug=args.debug)

@@ -18,10 +18,23 @@ Exlpicit Byte Format:
 Continuous Zero Byte Format:
     Used for encoding a series of continuous zeroes
     [1][1][6x Payload] where the payload represents the number of continuous zeroes
+
+Special Tokens:
+    <BREAK> Token: Used to mark chunk boundaries
+    Encoded as a single byte with value 11111111 (0xFF)
 """
 
 from typing import Tuple, List
 from typing import Tuple, List, Union
+
+def handle_break_token() -> Tuple[str, int]:
+    """
+    Handles the special <BREAK> token (0xFF).
+    
+    Returns:
+        Tuple[str, int]: A tuple with the special token "<BREAK>" and a value of 0.
+    """
+    return ("<BREAK>", 0)
 
 def handle_rank_byte(byte: int) -> Tuple[str, int]:
     """
@@ -52,52 +65,90 @@ def handle_double_byte(byte: int) -> list[Tuple[str,int]]:
 
 def explicit_bytes_length(bytes_data: bytes, idx: int) -> int:
     """
-    Determines the length of the explicit bytes.
+    Determines the length of the explicit token starting at idx.
+    
+    The explicit token format is:
+      - 2-byte token: Start: [1][0][6-bit payload]; Stop: [1][7-bit payload]
+      - 3-byte token: Start: [1][0][6-bit payload]; Middle: [0][7-bit payload]; Stop: [1][7-bit payload]
+      - 4-byte token: Start: [1][0][6-bit payload]; Middle1: [0][7-bit payload]; 
+                      Middle2: [0][7-bit payload]; Stop: [1][7-bit payload]
     
     Args:
-        bytes_data (bytes): The byte data to check.
-        idx (int): The index of the byte to check.
+        bytes_data (bytes): The byte sequence.
+        idx (int): The starting index.
         
     Returns:
-        int: The length of the explicit bytes (2 or 3).
+        int: The explicit token length (2, 3, or 4).
     """
-    if idx + 1 < len(bytes_data) and (bytes_data[idx+1] & 0b10000000):  # Check if the first bit is set
-        return 2
-    elif idx + 2 < len(bytes_data):
-        return 3
-    return 2  # Default to 2 if we're at the end of the data
+    if idx + 1 >= len(bytes_data):
+        return 1  # Fallback, though normally explicit tokens are at least 2 bytes.
+    
+    # Check the second byte
+    if (bytes_data[idx+1] & 0b10000000) != 0:
+        return 2  # 2-byte token: second byte is stop (msb=1)
+    else:
+        # Byte at idx+1 is a middle byte (msb=0). Check byte at idx+2.
+        if idx + 2 < len(bytes_data):
+            if (bytes_data[idx+2] & 0b10000000) != 0:
+                return 3  # 3-byte token: third byte is stop (msb=1)
+            else:
+                # Both idx+1 and idx+2 are middle bytes. Now, if byte at idx+3 exists and is stop:
+                if idx + 3 < len(bytes_data) and ((bytes_data[idx+3] & 0b10000000) != 0):
+                    return 4  # 4-byte token
+                else:
+                    # Fallback if not enough bytes – default to 3-byte token
+                    return 3
+        else:
+            # Not enough bytes after middle – fallback to 2
+            return 2
 
 def handle_explicit_bytes(bytes_data: bytes) -> Tuple[str, int]:
     """
-    Handles the explicit byte case.
+    Decodes an explicit token.
+    
+    The explicit format is:
+      - 2-byte token: Start: [1][0][6-bit payload]; Stop: [1][7-bit payload]
+          → value = (start_payload << 7) | stop_payload   (13 bits max)
+      - 3-byte token: Start: [1][0][6-bit payload]; Middle: [0][7-bit payload]; Stop: [1][7-bit payload]
+          → value = (start_payload << 14) | (middle_payload << 7) | stop_payload   (20 bits max)
+      - 4-byte token: Start: [1][0][6-bit payload]; Middle1: [0][7-bit payload]; 
+                      Middle2: [0][7-bit payload]; Stop: [1][7-bit payload]
+          → value = (start_payload << 21) | (middle_payload1 << 14) 
+                      | (middle_payload2 << 7) | stop_payload   (27 bits max)
     
     Args:
-        bytes_data (bytes): The relevant bytes for decoding (2 or 3 bytes)
+        bytes_data (bytes): The byte sequence representing the token.
         
     Returns:
-        Tuple[str, int]: A tuple with the type 'e' and the token value
+        Tuple[str, int]: A tuple with type 'e' and the decoded token value.
     """
-    first_byte = bytes_data[0]
-    second_byte = bytes_data[1]
-    
-    # Extract the 6-bit payload from first byte
-    first_payload = first_byte & 0b00111111
-    
-    # Extract the payload from second byte
-    second_payload = second_byte & 0b01111111
-    
-    if len(bytes_data) == 2:  # Two bytes format
-        # Combine payloads from first and second bytes
-        value = (first_payload << 7) | second_payload
-    else:  # Three bytes format
-        # Process the third byte
-        third_byte = bytes_data[2]
-        third_payload = third_byte & 0b01111111
-        
-        # Combine payloads from all three bytes
-        value = (first_payload << 14) | (second_payload << 7) | third_payload
-    
-    return ("e", value)
+    if len(bytes_data) == 1:
+        # 1-byte explicit token.
+        value = bytes_data[0] & 0b00111111
+        return ("e", value)
+    elif len(bytes_data) == 2:
+        # 2-byte explicit token.
+        start_payload = bytes_data[0] & 0b00111111
+        stop_payload = bytes_data[1] & 0b01111111  # 7-bit payload in stop byte
+        value = (start_payload << 7) | stop_payload
+        return ("e", value)
+    elif len(bytes_data) == 3:
+        # 3-byte explicit token.
+        start_payload = bytes_data[0] & 0b00111111
+        middle_payload = bytes_data[1] & 0b01111111  # 7-bit payload in middle byte
+        stop_payload = bytes_data[2] & 0b01111111  # 7-bit payload in stop byte
+        value = (start_payload << 14) | (middle_payload << 7) | stop_payload
+        return ("e", value)
+    elif len(bytes_data) == 4:
+        # 4-byte explicit token.
+        start_payload = bytes_data[0] & 0b00111111
+        middle_payload1 = bytes_data[1] & 0b01111111  # 7-bit payload in first middle byte
+        middle_payload2 = bytes_data[2] & 0b01111111  # 7-bit payload in second middle byte
+        stop_payload = bytes_data[3] & 0b01111111  # 7-bit payload in stop byte
+        value = (start_payload << 21) | (middle_payload1 << 14) | (middle_payload2 << 7) | stop_payload
+        return ("e", value)
+    else:
+        raise ValueError("Invalid explicit token length.")
 
 def handle_continuous_zero_byte(byte: int) -> Tuple[List[Tuple[str,int]], int]:
     """
@@ -129,6 +180,10 @@ def handle_next_bytes(bytes_data: bytes, idx: int) -> Tuple[List[Tuple[str,int]]
     """
     if idx >= len(bytes_data):
         return [], idx  # Safety check for end of data
+    
+    # Check for special <BREAK> token (0xFF)
+    if bytes_data[idx] == 0xFF:
+        return [handle_break_token()], idx + 1
         
     if (bytes_data[idx] & 0b11000000) == 0b00000000:  # Rank byte
         return [handle_rank_byte(bytes_data[idx])], idx + 1
@@ -147,18 +202,50 @@ def handle_next_bytes(bytes_data: bytes, idx: int) -> Tuple[List[Tuple[str,int]]
         # Default case to prevent infinite loops
         return [], idx + 1
 
-def decode_bytes(data: bytes) -> list[Tuple[str,int]]:
+def extract_window_size(data: bytes) -> Tuple[int, int]:
     """
-    Decodes binary data into a list of token tuples.
+    Extracts the window size from the beginning of the encoded data.
+    
+    Args:
+        data (bytes): The binary data to extract the window size from.
+        
+    Returns:
+        Tuple[int, int]: A tuple containing:
+            - The extracted window size (default 64 if not found)
+            - The updated index after the window size token
+    """
+    idx = 0
+    
+    if len(data) >= 2:  # We need at least 2 bytes for an explicit token
+        # Check if the first byte indicates an explicit token
+        if (data[0] & 0b11000000) == 0b10000000:
+            length = explicit_bytes_length(data, 0)
+            if length <= len(data):
+                token_type, token_value = handle_explicit_bytes(data[0:length])
+                idx = length  # Move past the window size token
+                return token_value, idx
+    
+    # Default window size if no valid token found
+    return 64, idx
+
+def decode_bytes(data: bytes) -> Tuple[list[Tuple[str,int]], int]:
+    """
+    Decodes binary data into a list of token tuples and extracts the window size.
     
     Args:
         data (bytes): The binary data to decode.
         
     Returns:
-        list[Tuple[str,int]]: A list of tuples with the type and rank or token value.
+        Tuple[list[Tuple[str,int]], int]: A tuple containing:
+            - A list of tuples with the type and rank or token value
+            - The window size extracted from the beginning of the data
     """
     tokens = []
-    idx = 0
+    
+    # Extract the window size from the beginning of the data
+    window_size, idx = extract_window_size(data)
+    print(f"Extracted window size: {window_size}")
+    # Continue decoding the rest of the tokens
     while idx < len(data):
         new_tokens, new_idx = handle_next_bytes(data, idx)
         if new_idx == idx:  # Prevent infinite loops
@@ -166,4 +253,5 @@ def decode_bytes(data: bytes) -> list[Tuple[str,int]]:
         else:
             idx = new_idx
         tokens.extend(new_tokens)
-    return tokens
+    
+    return tokens, window_size
