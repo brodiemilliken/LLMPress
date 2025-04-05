@@ -1,12 +1,15 @@
-import sys
+"""
+LLMPress Core Compression Functionality
+
+This module handles the compression of text data using language model predictions.
+"""
 import os
 from typing import Optional, Tuple, List, Any
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from Compression import Tokenize
-from Compression import Encoder
-from Compression import file_splitter
+# Import from within the compression package
+from .tokenizer import tokenize_chunks
+from .encoder import encode_tokens
+from .file_splitter import chunk_file
 
 def combine_tokenized_chunks(tokenized_chunks: List[List[Tuple[str, int]]]) -> List[Tuple[str, int]]:
     """
@@ -64,23 +67,14 @@ def compress(input_data, model, window_size=100, output_path=None, min=100, max=
         original_size = len(input_data.encode('utf-8'))
 
     # Step 1: Chunk and tokenize
-    chunks = file_splitter.chunk_file(input_data, min, max)
+    chunks = chunk_file(input_data, min, max)
+    tokenized_chunks = tokenize_chunks(chunks, model, window_size)
 
-    # for chunk in chunks:
-    #     print("Chunk:")
-    #     print(chunk)
-
-    tokenized_chunks = Tokenize.tokenize_chunks(chunks, model, window_size)
-
-
-    # for tokenized_chunk in tokenized_chunks:
-    #     print("Tokenized chunk:")
-    #     print(tokenized_chunk)
     # Combine all chunks into a single token list
     tokens = combine_tokenized_chunks(tokenized_chunks)
     
     # Step 2: Binary encoding
-    bin_data = Encoder.encode_tokens(tokens.copy(), window_size)
+    bin_data = encode_tokens(tokens.copy(), window_size)
     compressed_size = len(bin_data)
     
     # Save binary if path provided

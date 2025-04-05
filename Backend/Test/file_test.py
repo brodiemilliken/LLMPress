@@ -6,7 +6,7 @@ from tabulate import tabulate
 # Fix the import path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from celery_client import CeleryClient  # Correct import path
-from Test_Utils import process_file
+from test_utils import process_file
 
 def display_results(result, output_dir="Output", debug=False):
     """

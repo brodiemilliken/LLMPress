@@ -3,12 +3,12 @@ import sys
 import argparse
 from tabulate import tabulate
 
-# Fix the import path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from celery_client import CeleryClient
-from Compression.Compress import compress
-from Decompression.Decompress import decompress
-from Test_Utils.file_utils import compare_files
+# Use environment-based imports
+
+from Backend.celery_client import CeleryClient
+from Backend.Compression.compressor import compress
+from Backend.Decompression.decompressor import decompress
+from Backend.Test.test_utils.file_utils import compare_files
 
 def get_files_in_directory(directory_path):
     """

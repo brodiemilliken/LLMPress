@@ -3,16 +3,11 @@ import sys
 import argparse
 import hashlib
 
-# Fix import path - add parent directory to path
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(script_dir)  # This points to Backend directory
-sys.path.append(project_root)
-
-# Now import should work - don't include "Backend." when running from within Backend directory
-from Compression.file_splitter import chunk_file, split_text
-from Compression.Tokenize import tokenize_chunks
-from Decompression.Detokenize import detokenize
-from celery_client import CeleryClient
+# Import using proper package structure
+from Backend.Compression.file_splitter import chunk_file, split_text
+from Backend.Compression.tokenizer import tokenize_chunks
+from Backend.Decompression.detokenizer import detokenize
+from Backend.celery_client import CeleryClient
 
 def verify_data_integrity(original_text, chunks):
     """

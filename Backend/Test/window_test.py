@@ -1,14 +1,18 @@
+"""
+Window Size Test
+
+Tests the impact of window size on compression efficiency.
+"""
 import os
 import sys
 import argparse
 import time
 from tabulate import tabulate
 
-# Fix the import path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Import from Backend package
 from Backend.celery_client import CeleryClient
-from Compression.Compress import compress
-from Decompression.Decompress import decompress
+from Backend.Compression.compressor import compress
+from Backend.Decompression.decompressor import decompress
 
 def process_file_in_memory(file_path, client, window_size, debug=False):
     """

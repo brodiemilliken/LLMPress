@@ -1,11 +1,9 @@
-import sys
 import os
 import time
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from Compression.Compress import compress
-from Decompression.Decompress import decompress
+# Import using proper package structure
+from Backend.Compression.compressor import compress
+from Backend.Decompression.decompressor import decompress
 from .file_utils import create_output_dirs, compare_files
 from .token_utils import compare_tokens, save_debug_info, save_token_comparison
 

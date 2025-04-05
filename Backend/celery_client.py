@@ -1,4 +1,3 @@
-import sys
 import time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -6,15 +5,17 @@ from concurrent.futures import ThreadPoolExecutor
 from celery import Celery
 from celery.result import AsyncResult
 
-# Import Celery tasks from the AI worker
+# Import tasks using a try-except for flexibility across environments
 try:
     # When running inside the Docker container
     from AI.tasks import tokenize_text, detokenize_tokens
 except ImportError:
-    # Fallback for local development
-    project_root = Path(__file__).resolve().parent.parent
-    sys.path.insert(0, str(project_root))
-    from AI.tasks import tokenize_text, detokenize_tokens
+    # Fallback for local development - using relative path without sys.path manipulation
+    try:
+        from ..AI.tasks import tokenize_text, detokenize_tokens
+    except ImportError:
+        # Another fallback if running from a different context
+        from AI.tasks import tokenize_text, detokenize_tokens
 
 class CeleryClient:
     def detokenize(self, tokens, window_size=64, timeout=60):
