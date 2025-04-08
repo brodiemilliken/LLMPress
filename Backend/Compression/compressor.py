@@ -8,7 +8,7 @@ import logging
 from typing import Optional, Tuple, List, Any
 
 # Import from within the compression package
-from .tokenizer import tokenize_chunks
+from .tokenizer import tokenize
 from .encoder import encode_tokens
 from .file_splitter import chunk_file
 from ..exceptions import FileOperationError, CompressionError, TokenizationError, EncodingError
@@ -117,7 +117,11 @@ def compress(input_data, model, window_size=100, output_path=None, min=100, max=
         },
         fallback_exception=CompressionError
     ):
-        tokenized_chunks = tokenize_chunks(chunks, model, window_size)
+        # Process each chunk individually since batch processing has been removed
+        tokenized_chunks = []
+        for chunk in chunks:
+            tokens = tokenize(chunk, model)
+            tokenized_chunks.append(tokens)
         logger.info(f"Tokenized {len(tokenized_chunks)} chunks")
 
     # Combine all chunks into a single token list

@@ -8,7 +8,7 @@ import logging
 from typing import Optional, Tuple, List, Any
 
 # Import from within the decompression package
-from .detokenizer import detokenize_chunks
+from .detokenizer import detokenize
 from .decoder import decode_bytes
 from ..exceptions import FileOperationError, DecompressionError, DecodingError, TokenizationError
 from ..utils.error_handler import handle_operation_errors, operation_context
@@ -130,7 +130,11 @@ def decompress(input_data, model, output_path=None) -> Tuple[str, List[Any]]:
         },
         fallback_exception=DecompressionError
     ):
-        text = detokenize_chunks(token_chunks, model, encoded_window_size)
+        # Process each chunk individually since batch processing has been removed
+        text = []
+        for chunk in token_chunks:
+            chunk_text = detokenize(chunk, model)
+            text.append(chunk_text)
         logger.info(f"Detokenized all chunks")
 
     # Combine chunks if they came back as a list

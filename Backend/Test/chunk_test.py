@@ -9,7 +9,7 @@ from Backend.utils.logging_config import configure_logging
 
 # Import using proper package structure
 from Backend.Compression.file_splitter import chunk_file, split_text
-from Backend.Compression.tokenizer import tokenize_chunks
+from Backend.Compression.tokenizer import tokenize
 from Backend.Decompression.detokenizer import detokenize
 from Backend.celery import CeleryClient
 from Backend.config import get_preset  # Import the configuration system
@@ -164,8 +164,11 @@ def test_tokenize(chunks, window_size=64, verbose=True):
             print("\n" + "="*20 + " TOKENIZATION " + "="*20)
             print(f"Tokenizing {len(chunks)} chunks with window size {window_size}...")
 
-        # Tokenize the chunks
-        tokenized_chunks = tokenize_chunks(chunks, client, window_size)
+        # Process each chunk individually since batch processing has been removed
+        tokenized_chunks = []
+        for chunk in chunks:
+            tokens = tokenize(chunk, client)
+            tokenized_chunks.append(tokens)
 
         if verbose:
             # Print tokenization information

@@ -6,7 +6,6 @@ Loads and provides access to configuration settings from YAML files
 import os
 import yaml
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -59,52 +58,15 @@ class ConfigLoader:
             # Set some basic defaults
             self.config = {
                 'model': {
-                    'name': 'default',
-                    'path': None,
-                    'api_key': None,
-                    'api_endpoint': None,
-                    'parameters': {
-                        'temperature': 0.7,
-                        'top_p': 0.9,
-                        'max_tokens': 1024,
-                        'stop_sequences': []
-                    }
+                    'name': 'default'
                 },
                 'compression': {
                     'window_size': 64,
                     'min_chunk_size': 100,
-                    'max_chunk_size': 500,
-                    'chunk_strategy': 'fixed',
-                    'break_token_frequency': 500
-                },
-                'performance': {
-                    'cache': {
-                        'enabled': True,
-                        'size': 1000,
-                        'ttl': 3600
-                    },
-                    'parallel_processing': True,
-                    'max_workers': 4
+                    'max_chunk_size': 500
                 },
                 'system': {
-                    'log_level': 'quiet',
-                    'output_format': 'binary',
-                    'temp_directory': './temp',
-                    'retry': {
-                        'max_retries': 3,
-                        'retry_delay': 1,
-                        'backoff_factor': 2
-                    }
-                },
-                'integration': {
-                    'celery': {
-                        'broker_url': 'redis://redis:6379/0',
-                        'backend_url': None
-                    },
-                    'database': {
-                        'db_type': 'sqlite',
-                        'db_path': './data/llmpress.db'
-                    }
+                    'log_level': 'quiet'
                 }
             }
 
@@ -198,26 +160,6 @@ class ConfigLoader:
         """Get the model name"""
         return self.get('name', 'default', section='model')
 
-    def model_path(self):
-        """Get the model path"""
-        return self.get('path', None, section='model')
-
-    def api_key(self):
-        """Get the API key"""
-        return self.get('api_key', None, section='model')
-
-    def api_endpoint(self):
-        """Get the API endpoint"""
-        return self.get('api_endpoint', None, section='model')
-
-    def temperature(self):
-        """Get the temperature parameter"""
-        return self.get('temperature', 0.7, section='model.parameters')
-
-    def top_p(self):
-        """Get the top_p parameter"""
-        return self.get('top_p', 0.9, section='model.parameters')
-
     # Compression configuration methods
     def window_size(self):
         """Get the window size for compression"""
@@ -231,62 +173,7 @@ class ConfigLoader:
         """Get the maximum chunk size for compression"""
         return self.get('max_chunk_size', 500, section='compression')
 
-    def chunk_strategy(self):
-        """Get the chunk strategy"""
-        return self.get('chunk_strategy', 'fixed', section='compression')
-
-    def break_token_frequency(self):
-        """Get the break token frequency"""
-        return self.get('break_token_frequency', 500, section='compression')
-
-    # Performance configuration methods
-
-    def cache_enabled(self):
-        """Check if caching is enabled"""
-        return self.get('enabled', True, section='performance.cache')
-
-    def cache_size(self):
-        """Get the cache size"""
-        return self.get('size', 1000, section='performance.cache')
-
-    def parallel_processing(self):
-        """Check if parallel processing is enabled"""
-        return self.get('parallel_processing', True, section='performance')
-
-    def max_workers(self):
-        """Get the maximum number of workers"""
-        return self.get('max_workers', 4, section='performance')
-
     # System configuration methods
     def log_level(self):
         """Get the logging level"""
         return self.get('log_level', 'quiet', section='system')
-
-    def output_format(self):
-        """Get the output format"""
-        return self.get('output_format', 'binary', section='system')
-
-    def temp_directory(self):
-        """Get the temporary directory"""
-        return self.get('temp_directory', './temp', section='system')
-
-    def max_retries(self):
-        """Get the maximum number of retries"""
-        return self.get('max_retries', 3, section='system.retry')
-
-    # Integration configuration methods
-    def celery_broker_url(self):
-        """Get the Celery broker URL"""
-        return self.get('broker_url', 'redis://redis:6379/0', section='integration.celery')
-
-    def celery_backend_url(self):
-        """Get the Celery result backend URL"""
-        return self.get('backend_url', None, section='integration.celery')
-
-    def database_type(self):
-        """Get the database type"""
-        return self.get('db_type', 'sqlite', section='integration.database')
-
-    def database_path(self):
-        """Get the database path"""
-        return self.get('db_path', './data/llmpress.db', section='integration.database')

@@ -13,9 +13,7 @@ from .client import CeleryClient
 from .api import (
     get_client,
     tokenize,
-    detokenize,
-    tokenize_chunks,
-    detokenize_chunks
+    detokenize
 )
 
 # Define what's available for import
@@ -23,7 +21,5 @@ __all__ = [
     'CeleryClient',
     'get_client',
     'tokenize',
-    'detokenize',
-    'tokenize_chunks',
-    'detokenize_chunks'
+    'detokenize'
 ]
