@@ -17,7 +17,6 @@ services:
     image: llmpress-worker:latest
     volumes:
       - ${LLMPRESS_ROOT:-../AI}:/app
-      - ../Backend/config:/app/Backend/config  # Explicitly mount config directory
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
@@ -35,15 +34,14 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    # profiles: ["gpu"]  # Commented out to allow starting without profile
-
+    profiles: ["gpu"]
+    
   backend:
     build:
       context: ..
       dockerfile: Backend/Dockerfile
     volumes:
       - ../Backend:/app/Backend
-      - ../Backend/config:/app/Backend/config  # Explicitly mount config directory
       - ${LLMPRESS_ROOT:-../AI}:/app/AI
     environment:
       - PYTHONPATH=/app:/app/AI
@@ -54,7 +52,7 @@ services:
       - redis
       - llmpress-worker
     restart: unless-stopped
-    # profiles: ["gpu"]  # Commented out to allow starting without profile
+    profiles: ["gpu"]
     working_dir: /app/Backend
 
 volumes:

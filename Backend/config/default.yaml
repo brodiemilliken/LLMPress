@@ -1,49 +1,8 @@
 # Default configuration for LLMPress
-
-# Model Configuration
-model:
-  name: "default"                  # Model identifier
-  path: null                       # Path to local model (null for API-based)
-  api_key: null                    # API key (null to use environment variable)
-  api_endpoint: null               # API endpoint (null for default)
-  parameters:
-    temperature: 0.7               # Controls randomness (0.0-2.0)
-    top_p: 0.9                     # Nucleus sampling parameter (0.0-1.0)
-    max_tokens: 1024               # Maximum tokens to generate
-    stop_sequences: []             # List of sequences that stop generation
-
-# Compression Settings
 compression:
-  window_size: 64                  # Sliding context window size
-  min_chunk_size: 100              # Minimum chunk size in bytes/tokens
-  max_chunk_size: 500              # Maximum chunk size in bytes/tokens
-  chunk_strategy: "fixed"          # Chunking strategy (fixed, semantic)
-  break_token_frequency: 500       # How often to insert break tokens
+  window_size: 64      # Default sliding context window size
+  min_chunk_size: 100  # Minimum chunk size in bytes
+  max_chunk_size: 500  # Maximum chunk size in bytes
 
-# Performance Optimization
-performance:
-  cache:
-    enabled: true                  # Whether to use caching
-    size: 1000                     # Maximum cache size
-    ttl: 3600                      # Time-to-live for cached items (seconds)
-  parallel_processing: true        # Whether to use parallel processing
-  max_workers: 4                   # Maximum number of worker threads/processes
-
-# System Settings
-system:
-  log_level: "quiet"               # Logging level (quiet, normal, verbose, debug)
-  output_format: "binary"          # Format for output files
-  temp_directory: "./temp"         # Directory for temporary files
-  retry:
-    max_retries: 3                 # Maximum retry attempts
-    retry_delay: 1                 # Initial delay between retries (seconds)
-    backoff_factor: 2              # Exponential backoff factor
-
-# Integration Settings
-integration:
-  celery:
-    broker_url: "redis://redis:6379/0"    # URL for Celery broker
-    backend_url: null                     # URL for Celery result backend (null = same as broker)
-  database:
-    db_type: "sqlite"                     # Database type
-    db_path: "./data/llmpress.db"         # Database path or connection string
+general:
+  log_level: quiet     # Default logging level (quiet, normal, verbose, debug)

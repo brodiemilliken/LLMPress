@@ -2,12 +2,12 @@
 param (
     [Parameter(Mandatory=$true)]
     [string]$Service,
-
+    
     [Parameter(Mandatory=$true)]
     [string]$Command,
-
+    
     [Parameter(Mandatory=$false, ValueFromRemainingArguments=$true)]
-    [string[]]$CommandArgs
+    [string[]]$Args
 )
 
 # Execute the command in the specified service
@@ -15,8 +15,8 @@ Write-Host "Executing command in $Service container..." -ForegroundColor Cyan
 
 # Build the full command with arguments
 $fullCommand = @("compose", "exec", $Service, $Command)
-if ($CommandArgs) {
-    $fullCommand += $CommandArgs
+if ($Args) {
+    $fullCommand += $Args
 }
 
 # Show the command being executed

@@ -1,43 +1,57 @@
-# Docker Scripts for LLMPress
+# LLMPress Deployment
 
-This document explains how to use the simplified Docker scripts for building and controlling the LLMPress containers.
+This directory contains scripts and configuration files for deploying and managing LLMPress.
 
-## Scripts
+## Prerequisites
 
-### build-docker.ps1
+- Docker and Docker Compose
+- PowerShell (for Windows users)
 
-Builds all Docker containers defined in the `docker-compose.yml` file.
+## Quick Start
 
+1. Start the containers:
 ```powershell
-.\build-docker.ps1
+.\docker-control.ps1 -Action start
 ```
+
+2. Run a test:
+```powershell
+.\docker-run.ps1 backend python Test/batch_test.py -i Test/small_files/ -m gpt2
+```
+
+3. Stop the containers:
+```powershell
+.\docker-control.ps1 -Action stop
+```
+
+## Available Scripts
 
 ### docker-control.ps1
 
-Controls the Docker containers with start, stop, and restart actions. Also allows scaling the number of workers and backends.
+Controls Docker containers (start, stop, restart, status).
 
 ```powershell
-# Start containers with default configuration (1 worker, 1 backend)
+# Start containers with default scaling (1 worker, 1 backend)
 .\docker-control.ps1 -Action start
 
-# Start containers with custom scaling (2 workers, 1 backend)
+# Start containers with custom scaling
 .\docker-control.ps1 -Action start -Workers 2 -Backends 1
-
-# Start containers with custom scaling (1 worker, 2 backends)
-.\docker-control.ps1 -Action start -Workers 1 -Backends 2
 
 # Stop all containers
 .\docker-control.ps1 -Action stop
 
-# Restart containers with custom scaling
-.\docker-control.ps1 -Action restart -Workers 3 -Backends 2
+# Restart containers
+.\docker-control.ps1 -Action restart
+
+# Check container status
+.\docker-control.ps1 -Action status
 ```
 
 #### Parameters
 
-- `-Action`: Required. Specifies the action to perform: "start", "stop", or "restart".
-- `-Workers`: Optional. Number of worker containers to run (default: 1).
-- `-Backends`: Optional. Number of backend containers to run (default: 1).
+- `-Action`: Required. The action to perform (start, stop, restart, status).
+- `-Workers`: Optional. The number of worker containers to start (default: 1).
+- `-Backends`: Optional. The number of backend containers to start (default: 1).
 
 ### docker-run.ps1
 
@@ -60,9 +74,27 @@ Executes commands in Docker containers. This is especially useful for running te
 - `<command>`: The main command to execute in the container.
 - `[args...]`: Any additional arguments to pass to the command.
 
+### docker-exec.ps1
+
+Alternative script for executing commands in Docker containers with named parameters.
+
+```powershell
+# Run a test in the backend container
+.\docker-exec.ps1 -Service backend -Command python -Args Test/encoder_decoder_test.py
+
+# Run a command in the redis container
+.\docker-exec.ps1 -Service redis -Command redis-cli -Args ping
+```
+
+#### Parameters
+
+- `-Service`: Required. The service to run the command in (e.g., "backend", "redis", "llmpress-worker").
+- `-Command`: Required. The main command to execute in the container.
+- `-Args`: Optional. Additional arguments to pass to the command.
+
 ## Running Tests
 
-To run tests in the backend container:
+You can run tests in the backend container using the docker-run.ps1 script:
 
 ```powershell
 # Start the containers first
@@ -75,13 +107,25 @@ To run tests in the backend container:
 .\docker-run.ps1 backend python Test/batch_test.py -i Test/small_files/ -m gpt2
 ```
 
-## Cleaning Up
+## Configuration
 
-You can safely remove the old scripts in this directory:
-- llmpress-build.bat
-- llmpress-start.bat
-- llmpress-stop.bat
-- start-llmpress.ps1
-- docker-exec.ps1 (replaced by docker-run.ps1)
+The `.env` file contains environment variables used by Docker Compose. You can modify this file to change the configuration.
 
-These have been replaced by the new, simplified scripts.
+## Troubleshooting
+
+If you encounter issues with the Docker containers, try the following:
+
+1. Check the container logs:
+```powershell
+docker compose logs
+```
+
+2. Restart the containers:
+```powershell
+.\docker-control.ps1 -Action restart
+```
+
+3. Rebuild the containers:
+```powershell
+docker compose build --no-cache
+```

@@ -6,7 +6,6 @@ multiprocessing.set_start_method('spawn', force=True)
 from celery import Celery
 from typing import List, Tuple, Any
 import os
-import time
 
 # Set default broker URL if not specified in environment
 broker_url = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
@@ -48,12 +47,12 @@ def get_model():
 def tokenize_text(text: str, window_size: int = 64) -> List[Tuple[str, int]]:
     """
     Task to tokenize text
-    
+
     Args:
         text: The text to tokenize
         window_size: Size of the sliding context window for token prediction
     """
-    from llm_tokenize import encode_text
+    from token_utils import encode_text
     model = get_model()
     return encode_text(text, model, window_size)
 
@@ -61,18 +60,18 @@ def tokenize_text(text: str, window_size: int = 64) -> List[Tuple[str, int]]:
 def detokenize_tokens(tokens: List[List[Any]], window_size: int = 64) -> str:
     """
     Task to detokenize tokens
-    
+
     Args:
         tokens: The token sequences to decode
         window_size: Size of the sliding context window for token prediction
     """
-    from llm_detokenize import decode_tokens
+    from token_utils import decode_tokens
     model = get_model()
     return decode_tokens(tokens, model, window_size)
 
 # Worker startup
 @celery_app.on_after_configure.connect
-def setup_worker(sender, **kwargs):
+def setup_worker(*args, **kwargs):  # pylint: disable=unused-argument
     print("Celery worker starting up...")
     try:
         # Pre-load the model to avoid cold start on first request

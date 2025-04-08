@@ -1,11 +1,9 @@
 # Optimal configuration for GPT2 model
-model:
-  name: "gpt2"                  # Model identifier
-
 compression:
-  window_size: 128              # Optimal sliding context window for GPT2
-  min_chunk_size: 200           # Minimum chunk size in bytes
-  max_chunk_size: 500           # Maximum chunk size in bytes
+  window_size: 128     # Optimal sliding context window for GPT2
+  min_chunk_size: 200  # Minimum chunk size in bytes
+  max_chunk_size: 500  # Maximum chunk size in bytes
 
-system:
-  log_level: "normal"           # Logging level (quiet, normal, verbose, debug)
+general:
+  model_name: gpt2     # Model identifier
+  log_level: normal    # Logging level (quiet, normal, verbose, debug)

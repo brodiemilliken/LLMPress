@@ -1,11 +1,8 @@
 from typing import List, Tuple
-from ..exceptions import TokenizationError
-from ..utils.error_handler import handle_operation_errors, retry_operation
 
-@handle_operation_errors(
-    operation_name="Token Decoding",
-    fallback_exception=TokenizationError
-)
+# Direct API client functions - these are simple pass-throughs
+# to maintain backward compatibility
+
 def decode_tokens(tokens: List[Tuple[str, int]], api_client, window_size: int = 64) -> str:
     """
     Convert a list of encoded tokens into text by using the API.
@@ -21,10 +18,6 @@ def decode_tokens(tokens: List[Tuple[str, int]], api_client, window_size: int = 
     # Pass the request to the API client with window_size parameter
     return api_client.detokenize(tokens, window_size)
 
-@handle_operation_errors(
-    operation_name="Detokenization",
-    fallback_exception=TokenizationError
-)
 def detokenize(tokens: List[int], api_client) -> str:
     """
     Simple pass-through to the API client's detokenize function.
@@ -38,4 +31,22 @@ def detokenize(tokens: List[int], api_client) -> str:
     """
     return api_client.detokenize(tokens)
 
-# Batch processing function has been removed
+def detokenize_chunks(token_chunks: List[List[Tuple[str, int]]], api_client, window_size=64) -> List[str]:
+    """
+    Detokenize multiple token chunks using the API client.
+
+    Args:
+        token_chunks (List[List[Tuple[str, int]]]): List of token chunks to detokenize.
+        api_client: The API client to use.
+        window_size (int): Size of the sliding context window for token prediction.
+
+    Returns:
+        List[str]: List of detokenized text strings, one for each chunk.
+    """
+    # If the client supports batch processing, use it
+    return api_client.detokenize_chunks(token_chunks, window_size)
+
+
+
+
+
