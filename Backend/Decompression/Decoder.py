@@ -24,7 +24,7 @@ Special Tokens:
     Encoded as a single byte with value 11111111 (0xFF)
 """
 
-from typing import Tuple, List, Union
+from typing import Tuple, List
 from ..exceptions import DecodingError
 from ..utils.error_handler import handle_operation_errors
 
@@ -68,12 +68,6 @@ def explicit_bytes_length(bytes_data: bytes, idx: int) -> int:
     """
     Determines the length of the explicit token starting at idx.
 
-    The explicit token format is:
-      - 2-byte token: Start: [1][0][6-bit payload]; Stop: [1][7-bit payload]
-      - 3-byte token: Start: [1][0][6-bit payload]; Middle: [0][7-bit payload]; Stop: [1][7-bit payload]
-      - 4-byte token: Start: [1][0][6-bit payload]; Middle1: [0][7-bit payload];
-                      Middle2: [0][7-bit payload]; Stop: [1][7-bit payload]
-
     Args:
         bytes_data (bytes): The byte sequence.
         idx (int): The starting index.
@@ -106,50 +100,79 @@ def explicit_bytes_length(bytes_data: bytes, idx: int) -> int:
 def handle_explicit_bytes(bytes_data: bytes) -> Tuple[str, int]:
     """
     Decodes an explicit token.
-
-    The explicit format is:
-      - 2-byte token: Start: [1][0][6-bit payload]; Stop: [1][7-bit payload]
-          → value = (start_payload << 7) | stop_payload   (13 bits max)
-      - 3-byte token: Start: [1][0][6-bit payload]; Middle: [0][7-bit payload]; Stop: [1][7-bit payload]
-          → value = (start_payload << 14) | (middle_payload << 7) | stop_payload   (20 bits max)
-      - 4-byte token: Start: [1][0][6-bit payload]; Middle1: [0][7-bit payload];
-                      Middle2: [0][7-bit payload]; Stop: [1][7-bit payload]
-          → value = (start_payload << 21) | (middle_payload1 << 14)
-                      | (middle_payload2 << 7) | stop_payload   (27 bits max)
-
+    
     Args:
         bytes_data (bytes): The byte sequence representing the token.
 
     Returns:
         Tuple[str, int]: A tuple with type 'e' and the decoded token value.
+
+    Raises:
+        ValueError: If the token length is invalid or the byte format is incorrect.
     """
+    if not bytes_data:
+        raise ValueError("Empty bytes provided for explicit token decoding")
+
+    if len(bytes_data) > 4:
+        raise ValueError(f"Invalid explicit token length: must be 1-4 bytes, got {len(bytes_data)}.")
+
+    # Validate the first byte has the explicit token flag
+    if (bytes_data[0] & 0b10000000) == 0:
+        raise ValueError(f"First byte of explicit token must have MSB set, got {bin(bytes_data[0])}")
+
     if len(bytes_data) == 1:
-        # 1-byte explicit token.
+        # Single byte explicit token
         value = bytes_data[0] & 0b00111111
         return ("e", value)
+
     elif len(bytes_data) == 2:
-        # 2-byte explicit token.
+        # 2-byte explicit token
         start_payload = bytes_data[0] & 0b00111111
-        stop_payload = bytes_data[1] & 0b01111111  # 7-bit payload in stop byte
+
+        # Validate the stop byte has the stop flag
+        if (bytes_data[1] & 0b10000000) == 0:
+            raise ValueError(f"Stop byte must have MSB set, got {bin(bytes_data[1])}")
+
+        stop_payload = bytes_data[1] & 0b01111111
         value = (start_payload << 7) | stop_payload
         return ("e", value)
+
     elif len(bytes_data) == 3:
-        # 3-byte explicit token.
+        # 3-byte explicit token
         start_payload = bytes_data[0] & 0b00111111
-        middle_payload = bytes_data[1] & 0b01111111  # 7-bit payload in middle byte
-        stop_payload = bytes_data[2] & 0b01111111  # 7-bit payload in stop byte
+
+        # Validate the middle byte doesn't have the stop flag
+        if (bytes_data[1] & 0b10000000) != 0:
+            raise ValueError(f"Middle byte must not have MSB set, got {bin(bytes_data[1])}")
+
+        # Validate the stop byte has the stop flag
+        if (bytes_data[2] & 0b10000000) == 0:
+            raise ValueError(f"Stop byte must have MSB set, got {bin(bytes_data[2])}")
+
+        middle_payload = bytes_data[1] & 0b01111111
+        stop_payload = bytes_data[2] & 0b01111111
         value = (start_payload << 14) | (middle_payload << 7) | stop_payload
         return ("e", value)
+
     elif len(bytes_data) == 4:
-        # 4-byte explicit token.
+        # 4-byte explicit token
         start_payload = bytes_data[0] & 0b00111111
-        middle_payload1 = bytes_data[1] & 0b01111111  # 7-bit payload in first middle byte
-        middle_payload2 = bytes_data[2] & 0b01111111  # 7-bit payload in second middle byte
-        stop_payload = bytes_data[3] & 0b01111111  # 7-bit payload in stop byte
+
+        # Validate the middle bytes don't have the stop flag
+        if (bytes_data[1] & 0b10000000) != 0:
+            raise ValueError(f"First middle byte must not have MSB set, got {bin(bytes_data[1])}")
+        if (bytes_data[2] & 0b10000000) != 0:
+            raise ValueError(f"Second middle byte must not have MSB set, got {bin(bytes_data[2])}")
+
+        # Validate the stop byte has the stop flag
+        if (bytes_data[3] & 0b10000000) == 0:
+            raise ValueError(f"Stop byte must have MSB set, got {bin(bytes_data[3])}")
+
+        middle_payload1 = bytes_data[1] & 0b01111111
+        middle_payload2 = bytes_data[2] & 0b01111111
+        stop_payload = bytes_data[3] & 0b01111111
         value = (start_payload << 21) | (middle_payload1 << 14) | (middle_payload2 << 7) | stop_payload
         return ("e", value)
-    else:
-        raise ValueError("Invalid explicit token length.")
 
 def handle_continuous_zero_byte(byte: int) -> Tuple[List[Tuple[str,int]], int]:
     """

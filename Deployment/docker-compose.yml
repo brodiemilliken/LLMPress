@@ -35,7 +35,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    profiles: ["gpu"]
+    # profiles: ["gpu"]  # Commented out to allow starting without profile
 
   backend:
     build:
@@ -54,7 +54,7 @@ services:
       - redis
       - llmpress-worker
     restart: unless-stopped
-    profiles: ["gpu"]
+    # profiles: ["gpu"]  # Commented out to allow starting without profile
     working_dir: /app/Backend
 
 volumes:

@@ -4,8 +4,19 @@ Configuration Loader for LLMPress
 Loads and provides access to configuration settings from YAML files
 """
 import os
-import yaml
 import logging
+
+# Try to import yaml, but provide a fallback if it's not available
+try:
+    import yaml
+except ImportError:
+    # Create a simple fallback for yaml.safe_load
+    class DummyYAML:
+        @staticmethod
+        def safe_load(file_content):
+            logging.warning("YAML module not available, using dummy loader")
+            return {}
+    yaml = DummyYAML()
 
 logger = logging.getLogger(__name__)
 

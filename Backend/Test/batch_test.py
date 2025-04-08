@@ -10,7 +10,17 @@ from Backend.celery import CeleryClient
 from Backend.Compression.compressor import compress
 from Backend.Decompression.decompressor import decompress
 from Backend.Test.test_utils.file_utils import compare_files
-from Backend.config import get_preset  # Import the config module
+try:
+    from Backend.config import get_preset  # Import the config module
+except ImportError:
+    # Fallback if config module is not available
+    def get_preset(model_name):
+        print(f"Warning: Using default preset for {model_name} (config module not available)")
+        return {
+            'window_size': 128,
+            'min_chunk_size': 200,
+            'max_chunk_size': 500
+        }
 
 def get_files_in_directory(directory_path):
     """

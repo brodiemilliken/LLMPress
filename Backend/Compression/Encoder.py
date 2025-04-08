@@ -317,10 +317,17 @@ def encode_tokens(tokens: List[Tuple[str,int]], window_size: int = 64) -> bytes:
     Raises:
         EncodingError: If there's an error during encoding
     """
+    if not tokens:
+        raise EncodingError("No tokens provided for encoding")
+
+    # Validate window size
+    if not (1 <= window_size <= 65535):  # 16-bit max
+        raise EncodingError(f"Window size must be between 1 and 65535, got {window_size}")
+
     encoded_bytes = bytearray()
 
-    # Encode the window size as an explicit token using the new function:
-    window_size_token = ("<WINDOW_SIZE>", window_size)
+    # Encode the window size as an explicit token
+    window_size_token = ("e", window_size)
     encoded_bytes.extend(encode_explicit_token(window_size_token))
 
     # Make a copy of the tokens list to avoid modifying the original
@@ -328,7 +335,12 @@ def encode_tokens(tokens: List[Tuple[str,int]], window_size: int = 64) -> bytes:
 
     # Then encode the rest of the tokens
     while tokens_copy:
-        encoded_bytes.extend(encode_next_bytes(tokens_copy))
+        try:
+            encoded_bytes.extend(encode_next_bytes(tokens_copy))
+        except ValueError as e:
+            # Convert to EncodingError with more context
+            token_info = f"token: {tokens_copy[0] if tokens_copy else 'unknown'}"
+            raise EncodingError(f"Error encoding {token_info}: {str(e)}")
 
     return bytes(encoded_bytes)
 
