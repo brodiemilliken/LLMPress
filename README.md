@@ -42,12 +42,15 @@ LLMPress consists of several key components:
    cd LLMPress
    ```
 
-2. Start the services using Docker Compose:
-   ```bash
+2. Start the services using the PowerShell helper scripts:
+   ```powershell
    cd Deployment
-   ./llmpress-start.bat    # Windows
-   # OR
-   ./start-llmpress.ps1    # PowerShell with GPU support
+
+   # Start all services
+   .\docker-control.ps1 start
+
+   # Start with GPU support
+   .\docker-control.ps1 start gpu
    ```
 
 ### Manual Installation
@@ -70,19 +73,39 @@ LLMPress consists of several key components:
 
 ## Usage
 
-### Using the PowerShell Helper Script
+### Using the PowerShell Helper Scripts
 
-The easiest way to run LLMPress commands is using the provided PowerShell helper script:
+LLMPress provides several PowerShell helper scripts to simplify working with Docker:
+
+- **docker-control.ps1**: Manage Docker containers (start, stop, restart, logs)
+- **docker-run.ps1**: Run commands in containers
+- **docker-exec.ps1**: Execute commands in running containers
+
+#### Examples:
 
 ```powershell
-# From the Deployment directory
+# Start all services
+cd Deployment
+.\docker-control.ps1 start
+
+# Run a test in the backend container
 .\docker-run.ps1 backend python Test/file_test.py -i Test/small_files/sample.txt --model gpt2
+
+# Execute a command in a running container
+.\docker-exec.ps1 backend python -c "print('Hello from the container!')"
+
+# View logs
+.\docker-control.ps1 logs backend
 ```
 
 ### Single File Compression
 
-```bash
-docker exec -it llmpress-backend python Test/file_test.py \
+```powershell
+# Using PowerShell helper script
+.\docker-run.ps1 backend python Test/file_test.py -i Test/small_files/sample.txt --model gpt2 --log-level verbose
+
+# Or using direct Docker command
+docker exec -it deployment-backend-1 python Test/file_test.py \
   -i Test/small_files/sample.txt \
   --window-size 128 --min-chunk 200 --max-chunk 500 \
   --model gpt2 --log-level verbose
@@ -100,8 +123,12 @@ Parameters:
 
 ### Batch Compression
 
-```bash
-docker exec -it llmpress-backend python Test/batch_test.py \
+```powershell
+# Using PowerShell helper script
+.\docker-run.ps1 backend python Test/batch_test.py -i Test/small_files/ --model gpt2
+
+# Or using direct Docker command
+docker exec -it deployment-backend-1 python Test/batch_test.py \
   -i Test/small_files \
   --window-size 128 --min-chunk 200 --max-chunk 500 \
   --model gpt2 --log-level normal
@@ -111,8 +138,12 @@ docker exec -it llmpress-backend python Test/batch_test.py \
 
 Test different window sizes to find the optimal setting:
 
-```bash
-docker exec -it llmpress-backend python Test/window_test.py \
+```powershell
+# Using PowerShell helper script
+.\docker-run.ps1 backend python Test/window_test.py -i Test/small_files/sample.txt --model gpt2
+
+# Or using direct Docker command
+docker exec -it deployment-backend-1 python Test/window_test.py \
   -i Test/small_files/sample.txt \
   --model gpt2 --min-window 64 --max-window 256 --step 32
 ```
@@ -121,8 +152,12 @@ docker exec -it llmpress-backend python Test/window_test.py \
 
 Analyze how different chunking strategies affect compression:
 
-```bash
-docker exec -it llmpress-backend python Test/chunk_test.py \
+```powershell
+# Using PowerShell helper script
+.\docker-run.ps1 backend python Test/chunk_test.py -i Test/small_files/sample.txt --model gpt2
+
+# Or using direct Docker command
+docker exec -it deployment-backend-1 python Test/chunk_test.py \
   -i Test/small_files/sample.txt \
   --min-chunk 100 --max-chunk 500 \
   --model gpt2 --log-level debug
@@ -144,8 +179,12 @@ LLMPress supports different logging levels to control the verbosity of output:
 | `debug` | Show all messages including debug information |
 
 Example:
-```bash
-docker exec -it llmpress-backend python Test/file_test.py -i Test/small_files/sample.txt --log-level verbose
+```powershell
+# Using PowerShell helper script
+.\docker-run.ps1 backend python Test/file_test.py -i Test/small_files/sample.txt --log-level verbose
+
+# Or using direct Docker command
+docker exec -it deployment-backend-1 python Test/file_test.py -i Test/small_files/sample.txt --log-level verbose
 ```
 
 ### Log Format
@@ -204,11 +243,15 @@ LLMPress includes mechanisms to recover from errors when possible:
 
 LLMPress supports horizontal scaling with multiple worker instances:
 
-```bash
-# Start with 3 worker instances
-docker compose up --scale llmpress-worker=3
+```powershell
+# Start with 3 worker instances using the PowerShell helper script
+.\docker-control.ps1 start --scale worker=3
 
-# For GPU support
+# With GPU support
+.\docker-control.ps1 start gpu --scale worker=3
+
+# Or using direct Docker commands
+docker compose up --scale llmpress-worker=3
 docker compose --profile gpu up --scale llmpress-worker=3
 ```
 
@@ -223,8 +266,12 @@ LLMPress uses a configuration system that supports different model presets. Each
 
 You can specify a model preset using the `--model` parameter:
 
-```bash
-docker exec -it llmpress-backend python Test/file_test.py -i Test/small_files/sample.txt --model gpt2
+```powershell
+# Using PowerShell helper script
+.\docker-run.ps1 backend python Test/file_test.py -i Test/small_files/sample.txt --model gpt2
+
+# Or using direct Docker command
+docker exec -it deployment-backend-1 python Test/file_test.py -i Test/small_files/sample.txt --model gpt2
 ```
 
 ## License
